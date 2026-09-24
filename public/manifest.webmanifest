@@ -1,0 +1,14 @@
+{
+  "name": "Security Projects Onboarding",
+  "short_name": "SP Onboarding",
+  "description": "BS 7858 onboarding and security screening – Security Projects UK Ltd",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0c2547",
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

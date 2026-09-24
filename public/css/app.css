@@ -242,7 +242,7 @@ input[readonly] { background: var(--surface-2); }
 .section-title { display: flex; gap: 14px; align-items: flex-start; }
 .section-title .num { flex: none; width: 44px; height: 44px; border-radius: 10px; font-family: var(--display); background: linear-gradient(135deg, var(--brand-2), #143864); box-shadow: inset 0 -3px 0 var(--peri); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 1.05rem; }
 .section-title p { color: var(--muted); margin: 4px 0 0; font-size: .92rem; }
-.action-bar { position: sticky; bottom: 0; background: rgba(255,255,255,.96); backdrop-filter: blur(6px); border-top: 1px solid var(--line); padding: 14px 24px; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; border-radius: 0 0 var(--radius) var(--radius); z-index: 5; }
+.action-bar { position: sticky; bottom: 0; background: rgba(255,255,255,.96); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); padding: 14px 24px; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; border-radius: 0 0 var(--radius) var(--radius); z-index: 5; }
 .action-bar .status { font-size: .84rem; color: var(--muted); }
 @media (max-width: 640px) { .action-bar { padding: 10px 12px; } .action-bar .status { display: none; } .action-bar .btn-row { width: 100%; gap: 8px; flex-wrap: nowrap; } .action-bar .btn-row .btn { flex: 1; padding: 10px 8px; font-size: .86rem; white-space: nowrap; } }
 
@@ -341,7 +341,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: .88rem; }
 .bar-row .bar i { display: block; height: 100%; background: var(--peri); }
 
 /* ---------- Auth / landing ---------- */
-.auth-wrap { min-height: calc(100vh - 64px - 56px); display: grid; grid-template-columns: 1.05fr 1fr; }
+.auth-wrap { min-height: calc(100vh - 72px - 56px); min-height: calc(100dvh - 72px - 56px); display: grid; grid-template-columns: 1.05fr 1fr; }
 .auth-side { background: radial-gradient(1200px 600px at -10% -10%, #1c4478 0%, #0c2547 50%, #061830 100%); color: #fff; padding: 56px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
 .auth-side .logo-pill { background: #fff; border-radius: 14px; padding: 14px 22px; display: inline-block; align-self: flex-start; box-shadow: 0 20px 50px rgba(0,0,0,.35); margin-bottom: 14px; }
 .auth-side .logo-pill img { height: 64px; display: block; }
@@ -371,3 +371,57 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: .88rem; }
 }
 
 .nav.nav-public { display: flex; position: static; flex-direction: row; background: none; border: 0; padding: 0; margin-left: auto; box-shadow: none; }
+
+
+/* ---------- Mobile browsers (iOS Safari, Android Chrome / Samsung Internet, Firefox) ---------- */
+html { -webkit-tap-highlight-color: rgba(12, 37, 71, .08); }
+.btn, .choice > span, .nav a, .step-card, .rep-add, .file-list button, select { touch-action: manipulation; }
+.topbar .in, .footer .in { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+.footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* Consistent select boxes (iOS otherwise draws its own glossy style) */
+select { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 36px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%234a5a6f' stroke-width='2' d='M4 6l4 4 4-4'/%3E%3C/svg%3E") right 12px center / 14px no-repeat; }
+select:disabled, input:disabled, textarea:disabled { background-color: var(--surface-2); color: var(--ink-2); opacity: 1; -webkit-text-fill-color: var(--ink-2); }
+
+/* iOS collapses empty date inputs and centres their text */
+input[type=date] { -webkit-appearance: none; appearance: none; display: block; line-height: 1.3; }
+input[type=date]::-webkit-date-and-time-value { text-align: left; min-height: 1.3em; }
+input[type=date]::-webkit-calendar-picker-indicator { opacity: .6; }
+
+/* Month + year picker */
+.month-pick { display: flex; gap: 8px; }
+.month-pick select:first-child { flex: 1.5 1 0; min-width: 0; }
+.month-pick select:last-child { flex: 1 1 0; min-width: 0; }
+
+/* Camera button only on touch devices; desktop keeps drag-and-drop + Choose file */
+.drop-btns { gap: 8px; }
+.only-touch { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .only-touch { display: inline-flex; }
+  .drop .txt { min-width: 100%; }
+  .drop-btns { width: 100%; }
+  .drop-btns .btn { flex: 1; padding: 11px 12px; font-size: .9rem; }
+  .file-list button { padding: 10px 12px; }
+  .rep-remove { padding: 8px 4px; }
+  .choice > span { padding: 12px 14px; }
+}
+
+/* Save bar: hidden while the on-screen keyboard is up so it can't cover the field being typed in */
+@media (max-width: 760px) {
+  body.kb-open .action-bar { display: none; }
+  .wrap { padding: 18px 14px 40px; }
+  .card-pad { padding: 16px; }
+  .section-title .num { width: 38px; height: 38px; }
+  .section-title h1 { font-size: 1.2rem !important; }
+  .q-row .choices { width: 100%; }
+  .yesno .choice { flex: 1; }
+  .yesno .choice > span { min-width: 0; }
+  .sig-box canvas { height: 180px; }
+  .sig-tools { flex-wrap: wrap; }
+  .sig-tools .btn-row { width: 100%; }
+  .sig-tools .btn-row .btn { flex: 1; }
+  .hero { padding: 20px; }
+  .ring { width: 84px; height: 84px; }
+  .footer .in { font-size: .72rem; }
+}

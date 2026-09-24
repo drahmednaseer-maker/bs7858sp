@@ -88,14 +88,21 @@ router.post('/section/:key', (req, res, next) => {
   if (!EDITABLE.includes(app.status)) return res.status(409).json({ error: 'Your application has been submitted and can no longer be edited.' });
   const all = apps.data(app);
   const complete = req.body.action === 'complete';
+  // Autosave (typing pauses, app switching on phones) never shows errors, and keeps a section
+  // marked complete only while it is still valid.
+  const autosave = req.body.action === 'autosave';
   const clean = sanitizeFields(section.fields, req.body.data, all[section.key], { ip: req.ip, signer: `${req.user.first_name} ${req.user.last_name}` });
   let errors = {};
-  if (complete) {
+  if (complete || autosave) {
     const counts = {};
     for (const [k, n] of Object.entries(apps.docCounts(app.id))) if (k.startsWith(`${section.key}:`)) counts[k.slice(section.key.length + 1)] = n;
     errors = validateSection(section, clean, counts);
   }
   const ok = !Object.keys(errors).length;
+  if (autosave) {
+    apps.saveSection(app, section.key, clean, apps.sectionState(app)[section.key] === 'complete' && ok);
+    return res.json({ ok: true, saved: true, data: clean });
+  }
   apps.saveSection(app, section.key, clean, complete && ok);
   audit({ applicationId: app.id, user: req.user, action: complete && ok ? 'section_completed' : 'section_saved', detail: section.title, ip: req.ip });
   const idx = sections.indexOf(section);

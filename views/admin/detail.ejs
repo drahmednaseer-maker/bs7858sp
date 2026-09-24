@@ -283,8 +283,8 @@
                 <input type="hidden" name="_csrf" value="<%= csrf %>">
                 <div class="fld w-half"><label>Status</label><select name="status"><% Object.entries(VERIFICATION_STATUSES).forEach(([k, l]) => { %><option value="<%= k %>" <%= v.status === k ? 'selected' : '' %>><%= l %></option><% }) %></select></div>
                 <div class="fld w-half"><label>Code</label><select name="code"><% Object.entries(LETTER_CODES).forEach(([k, l]) => { %><option value="<%= k %>" <%= v.code === k ? 'selected' : '' %>><%= k %> – <%= l %></option><% }) %></select></div>
-                <div class="fld w-half"><label>Confirmed from</label><input type="month" name="confirmed_from" value="<%= v.confirmed_from || '' %>" placeholder="YYYY-MM"></div>
-                <div class="fld w-half"><label>Confirmed to</label><input type="month" name="confirmed_to" value="<%= v.confirmed_to || '' %>" placeholder="YYYY-MM"></div>
+                <div class="fld w-half"><label for="cf-<%= v.id %>">Confirmed from</label><%- include('../partials/month', { id: 'cf-' + v.id, name: 'confirmed_from', value: v.confirmed_from || '', disabled: false }) %></div>
+                <div class="fld w-half"><label for="ct-<%= v.id %>">Confirmed to</label><%- include('../partials/month', { id: 'ct-' + v.id, name: 'confirmed_to', value: v.confirmed_to || '', disabled: false }) %></div>
                 <div class="fld"><label>Contact email (override)</label><input type="email" name="contact_email" value="<%= v.contact_email || '' %>"></div>
                 <div class="fld"><label>Notes / audit comments</label><textarea name="notes" rows="2"><%= v.notes || '' %></textarea></div>
                 <div class="fld"><button class="btn btn-primary btn-sm">Save verification</button> <% if (v.updater) { %><span class="small muted">Last updated by <%= v.updater %></span><% } %></div>

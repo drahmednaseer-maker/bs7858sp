@@ -23,7 +23,8 @@
               <label for="r-<%= f.key %>"><%= f.label %><% if (f.required) { %><span class="req">*</span><% } %></label>
               <% if (f.type === 'textarea') { %><textarea id="r-<%= f.key %>" name="<%= f.key %>" rows="4"><%= values[f.key] || '' %></textarea>
               <% } else if (f.type === 'select') { %><select id="r-<%= f.key %>" name="<%= f.key %>"><option value="">Select…</option><% f.options.forEach((o) => { %><option <%= values[f.key] === o ? 'selected' : '' %>><%= o %></option><% }) %></select>
-              <% } else { %><input id="r-<%= f.key %>" type="<%= f.type === 'month' ? 'month' : 'text' %>" name="<%= f.key %>" value="<%= values[f.key] || '' %>" <%= f.type === 'month' ? 'placeholder=YYYY-MM' : '' %>><% } %>
+              <% } else if (f.type === 'month') { %><%- include('partials/month', { id: 'r-' + f.key, name: f.key, value: values[f.key] || '', disabled: false }) %>
+              <% } else { %><input id="r-<%= f.key %>" type="<%= f.key === 'respondent_phone' ? 'tel' : 'text' %>" name="<%= f.key %>" value="<%= values[f.key] || '' %>" autocomplete="<%= f.key === 'respondent_name' ? 'name' : f.key === 'respondent_phone' ? 'tel' : f.key === 'organisation' ? 'organization' : f.key === 'respondent_position' ? 'organization-title' : 'off' %>" <%= f.key === 'known_years' ? 'inputmode=numeric' : '' %>><% } %>
               <div class="err"><%= errors[f.key] || '' %></div>
             </div>
           <% }) %>

@@ -1,0 +1,18 @@
+<%
+  // Month + year dropdowns (type="month" is unsupported in Safari desktop and Firefox).
+  // Locals: id, name (optional, for classic form posts), value ('YYYY-MM' or ''), disabled
+  const [vy, vm] = /^\d{4}-\d{2}$/.test(value || '') ? value.split('-') : ['', ''];
+  const thisYear = new Date().getFullYear();
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+%>
+<div class="month-pick" data-month-pick>
+  <select id="<%= id %>" aria-label="Month" data-mp="m" <%= disabled ? 'disabled' : '' %>>
+    <option value="">Month</option>
+    <% MONTHS.forEach((m, i) => { const mm = String(i + 1).padStart(2, '0'); %><option value="<%= mm %>" <%= vm === mm ? 'selected' : '' %>><%= m %></option><% }) %>
+  </select>
+  <select aria-label="Year" data-mp="y" <%= disabled ? 'disabled' : '' %>>
+    <option value="">Year</option>
+    <% for (let y = thisYear + 1; y >= thisYear - 70; y--) { %><option value="<%= y %>" <%= vy === String(y) ? 'selected' : '' %>><%= y %></option><% } %>
+  </select>
+  <% if (typeof name !== 'undefined' && name) { %><input type="hidden" name="<%= name %>" value="<%= vy && vm ? vy + '-' + vm : '' %>" data-mp="v"><% } %>
+</div>

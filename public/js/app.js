@@ -17,6 +17,28 @@
     const msg = e.target.getAttribute('data-confirm');
     if (msg && !confirm(msg)) e.preventDefault();
   });
+  // Month + year pickers: keep the hidden YYYY-MM value (used by classic form posts) in step.
+  const monthValue = (wrap) => {
+    const m = $('[data-mp="m"]', wrap).value; const y = $('[data-mp="y"]', wrap).value;
+    return m && y ? y + '-' + m : '';
+  };
+  document.addEventListener('change', (e) => {
+    const wrap = e.target.closest('[data-month-pick]');
+    if (!wrap) return;
+    const hidden = $('[data-mp="v"]', wrap);
+    if (hidden) hidden.value = monthValue(wrap);
+  });
+
+  // On phones, hide the sticky save bar while the on-screen keyboard is open so it can't cover the field.
+  const small = window.matchMedia('(max-width: 760px)');
+  document.addEventListener('focusin', (e) => {
+    if (small.matches && e.target.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]), textarea')) document.body.classList.add('kb-open');
+  });
+  document.addEventListener('focusout', () => setTimeout(() => {
+    const a = document.activeElement;
+    if (!a || !a.matches('input, textarea')) document.body.classList.remove('kb-open');
+  }, 50));
+
   $$('[data-copy]').forEach((b) => b.addEventListener('click', () => {
     navigator.clipboard.writeText(b.getAttribute('data-copy')).then(() => { const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t; }, 1500); });
   }));
@@ -39,7 +61,7 @@
       host.innerHTML = '';
       const box = document.createElement('div');
       box.className = 'sig-done';
-      const when = host._sig.signedAt ? new Date(host._sig.signedAt).toLocaleString('en-GB') : 'just now (saved when you press Save)';
+      const when = host._sig.signedAt ? new Date(host._sig.signedAt).toLocaleString('en-GB') : 'just now';
       box.innerHTML = '<img alt="Your signature"><div class="meta"><b>Signed electronically</b><br>' + when + '</div>';
       box.querySelector('img').src = host._sig.image;
       if (!disabled) {
@@ -66,6 +88,25 @@
         ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0b1f4b';
       }
       size();
+      // Rotating the phone changes the canvas width: rescale what's been drawn instead of distorting it.
+      let lastW = canvas.getBoundingClientRect().width;
+      const onResize = () => {
+        if (!canvas.isConnected) { window.removeEventListener('resize', onResize); return; }
+        const w = canvas.getBoundingClientRect().width;
+        if (!w || Math.abs(w - lastW) < 2) return;
+        const snap = has ? canvas.toDataURL() : null;
+        const oldW = lastW; lastW = w;
+        size();
+        if (snap) {
+          // Keep the aspect ratio: shrink uniformly if the pad got narrower, otherwise redraw at the same size.
+          const k = Math.min(1, w / oldW);
+          const h = canvas.getBoundingClientRect().height;
+          const im = new Image();
+          im.onload = () => ctx.drawImage(im, 0, 0, oldW * k, h * k);
+          im.src = snap;
+        }
+      };
+      window.addEventListener('resize', onResize);
       const pos = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
       canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); canvas.setPointerCapture(e.pointerId); drawing = true; last = pos(e); hint.style.display = 'none'; ctx.beginPath(); ctx.arc(last.x, last.y, 1.1, 0, Math.PI * 2); ctx.fillStyle = '#0b1f4b'; ctx.fill(); has = true; });
       canvas.addEventListener('pointermove', (e) => {
@@ -110,10 +151,14 @@
   $$('[data-sig]').forEach(initSig);
 
   // ---------- File uploads ----------
+  // Phone photos: bake in the EXIF rotation (so ID scans aren't sideways in the PDF) and cap the size.
+  // Small PNG screenshots are left untouched; anything that can't be decoded is uploaded as-is.
   async function shrink(file) {
-    if (!/^image\/(jpeg|png)$/.test(file.type) || file.size < 3 * 1024 * 1024) return file;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+    if (file.type === 'image/png' && file.size < 1.5 * 1024 * 1024) return file;
     try {
-      const bmp = await createImageBitmap(file);
+      let bmp;
+      try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { bmp = await createImageBitmap(file); }
       const s = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas');
       c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
@@ -164,10 +209,13 @@
   function initFiles(host) {
     if (host._init || host.hasAttribute('data-disabled')) return;
     host._init = true;
-    const input = $('input[type=file]', host);
     const drop = $('.drop', host);
     const handle = async (fileList) => { for (const f of Array.from(fileList)) await uploadOne(host, await shrink(f)); };
-    input.addEventListener('change', () => { handle(input.files); input.value = ''; });
+    $$('input[type=file]', host).forEach((input) => input.addEventListener('change', () => {
+      const picked = Array.from(input.files); // copy first – Safari empties the live FileList when value is cleared
+      input.value = '';
+      handle(picked);
+    }));
     ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
     ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
     drop.addEventListener('drop', (e) => handle(e.dataTransfer.files));
@@ -196,6 +244,7 @@
       case 'confirm': return $('input[type=checkbox]', el).checked ? 'yes' : '';
       case 'signature': { const s = $('[data-sig]', el)._sig; return s && s.image ? { image: s.image } : null; }
       case 'files': return undefined;
+      case 'month': return monthValue($('[data-month-pick]', el));
       case 'repeater': return $$(':scope > .rep > [data-rows] > [data-row]', el).map((row) => Object.assign({ _id: row.dataset.id }, collect($('[data-scope]', row))));
       default: { const i = $('input, textarea, select', el); return i ? i.value : ''; }
     }
@@ -245,14 +294,14 @@
       const row = wrapDiv.firstElementChild;
       $(':scope > [data-rows]', rep).appendChild(row);
       $$('[data-sig]', row).forEach(initSig); $$('[data-files]', row).forEach(initFiles);
-      renumber(rep); applyVisibility(); dirty = true; updateTimeline();
+      renumber(rep); applyVisibility(); changed(); updateTimeline();
       const first = $('input, select, textarea', row); if (first) first.focus();
     });
     rep.addEventListener('click', (e) => {
       const rb = e.target.closest('[data-remove]');
       if (!rb || rb.closest('[data-rep]') !== rep) return;
       if (!confirm('Remove this entry?')) return;
-      rb.closest('[data-row]').remove(); renumber(rep); dirty = true; updateTimeline();
+      rb.closest('[data-row]').remove(); renumber(rep); changed(); updateTimeline();
     });
   });
 
@@ -294,14 +343,37 @@
       : '<li style="color:var(--good)">✓ Your ' + years + '-year history is continuous.</li>';
   }
 
-  let dirty = false;
-  form.addEventListener('input', (e) => { dirty = true; applyVisibility(); updateTimeline(); clearErr(e.target.closest('[data-field]')); });
+  const status = $('[data-save-status]');
+
+  // ---------- Autosave ----------
+  // Phones often discard background tabs (e.g. when the user switches to the camera or their banking app)
+  // and iOS never fires "unsaved changes" warnings, so save quietly as people type and when they leave.
+  const editable = !!$('[data-save]');
+  const url = '/apply/section/' + form.dataset.section;
+  const hhmm = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  let dirty = false; let timer = null;
+  function autosave(leaving) {
+    clearTimeout(timer);
+    if (!editable || !dirty) return;
+    const body = JSON.stringify({ action: 'autosave', data: collect($('[data-scope]', form)) });
+    dirty = false;
+    status.textContent = 'Saving…';
+    // keepalive lets the request finish while the page is closing, but browsers cap it at 64 KB.
+    fetch(url, { method: 'POST', keepalive: leaving && body.length < 60000, headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': CSRF }, body })
+      .then((r) => { if (!r.ok) throw new Error(); status.textContent = 'Saved automatically at ' + hhmm(); })
+      .catch(() => { dirty = true; status.textContent = 'Not saved yet – check your connection'; });
+  }
+  const changed = () => { dirty = true; clearTimeout(timer); timer = setTimeout(autosave, 2500); };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') autosave(true); });
+  window.addEventListener('pagehide', () => autosave(true));
+
+  form.addEventListener('input', (e) => { changed(); applyVisibility(); updateTimeline(); clearErr(e.target.closest('[data-field]')); });
   form.addEventListener('change', (e) => {
-    dirty = true; applyVisibility(); updateTimeline(); clearErr(e.target.closest('[data-field]'));
+    changed(); applyVisibility(); updateTimeline(); clearErr(e.target.closest('[data-field]'));
     if (e.target.matches('input[data-upper]')) e.target.value = e.target.value.toUpperCase();
   });
   form.addEventListener('focusout', (e) => { if (e.target.matches('input[data-upper]')) e.target.value = e.target.value.toUpperCase(); });
-  window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (dirty) { autosave(true); e.preventDefault(); e.returnValue = ''; } });
   applyVisibility(); updateTimeline();
 
   function clearErr(el) { if (!el) return; el.classList.remove('has-error'); const e = $(':scope > [data-err]', el); if (e) e.textContent = ''; }
@@ -325,8 +397,8 @@
     (first || box).scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  const status = $('[data-save-status]');
   $$('[data-save]').forEach((btn) => btn.addEventListener('click', async () => {
+    clearTimeout(timer);
     const action = btn.dataset.save;
     const data = collect($('[data-scope]', form));
     $$('[data-save]').forEach((b) => { b.disabled = true; });

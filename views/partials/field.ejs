@@ -58,8 +58,11 @@
       <% if (!disabled) { %>
       <div class="drop">
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>
-        <div class="txt"><b>Take a photo or upload a file</b>JPG, PNG, HEIC or PDF · up to 15 MB</div>
-        <label class="btn btn-sm">Choose file<input type="file" class="sr-only" accept="image/*,application/pdf" multiple></label>
+        <div class="txt"><b>Take a photo or upload a file</b>Photo or PDF · up to 15 MB</div>
+        <span class="btn-row drop-btns">
+          <label class="btn btn-sm btn-dark only-touch"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take photo<input type="file" class="sr-only" accept="image/*" capture="environment"></label>
+          <label class="btn btn-sm">Choose file<input type="file" class="sr-only" accept="image/*,application/pdf" multiple></label>
+        </span>
       </div>
       <% } %>
       <ul class="file-list">
@@ -68,7 +71,7 @@
             <% if (d.mime.startsWith('image/') && !d.mime.includes('hei')) { %><img class="thumb" src="/apply/file/<%= d.id %>" alt=""><% } else { %><span class="thumb"><%= d.mime === 'application/pdf' ? 'PDF' : 'IMG' %></span><% } %>
             <span class="name"><a href="/apply/file/<%= d.id %>" target="_blank" rel="noopener"><%= d.name %></a></span>
             <span class="size"><%= (d.size / 1024 / 1024).toFixed(1) %> MB</span>
-            <% if (!disabled) { %><button type="button" data-del>Remove</button><% } %>
+            <% if (!disabled) { %><button type="button" data-del aria-label="Remove <%= d.name %>">Remove</button><% } %>
           </li>
         <% }) %>
       </ul>
@@ -90,18 +93,27 @@
   <% } else { %>
     <label for="<%= id %>"><%= f.label %><%- reqMark %></label>
     <% if (f.help) { %><div class="help"><%= f.help %></div><% } %>
+    <%
+      // Mobile keyboards & autofill: autocomplete token, capitalisation and keyboard type.
+      const ac = f.ac || 'off'; // only the applicant's own fields are tagged, so referee / next-of-kin fields aren't autofilled with their details
+      const caps = f.upper ? 'characters' : (f.type === 'email' || f.inputmode === 'numeric') ? 'off' : f.type === 'textarea' ? 'sentences' : 'words';
+      const inputmode = f.inputmode || (f.type === 'number' ? 'numeric' : f.type === 'tel' ? 'tel' : f.type === 'email' ? 'email' : '');
+    %>
     <% if (f.type === 'textarea') { %>
-      <textarea id="<%= id %>" rows="<%= f.rows || 3 %>" <%= disabled ? 'disabled' : '' %> placeholder="<%= f.placeholder || '' %>"><%= val %></textarea>
+      <textarea id="<%= id %>" rows="<%= f.rows || 3 %>" <%= disabled ? 'disabled' : '' %> placeholder="<%= f.placeholder || '' %>" autocomplete="<%= ac %>" autocapitalize="<%= caps %>"><%= val %></textarea>
     <% } else if (f.type === 'select') { %>
-      <select id="<%= id %>" <%= disabled ? 'disabled' : '' %>>
+      <select id="<%= id %>" <%= disabled ? 'disabled' : '' %> autocomplete="<%= ac %>">
         <option value="">Select…</option>
         <% f.options.forEach((o) => { %><option value="<%= o.value %>" <%= val === o.value ? 'selected' : '' %>><%= o.label %></option><% }) %>
       </select>
+    <% } else if (f.type === 'month') { %>
+      <%- include('month', { id, value: val, disabled, name: '' }) %>
     <% } else { %>
-      <% const t = { text: 'text', email: 'email', tel: 'tel', date: 'date', month: 'month', number: 'number' }[f.type] || 'text'; %>
-      <input id="<%= id %>" type="<%= t %>" value="<%= val %>" <%= disabled ? 'disabled' : '' %> placeholder="<%= f.placeholder || (f.type === 'month' ? 'YYYY-MM' : '') %>"
-        <% if (f.inputmode) { %>inputmode="<%= f.inputmode %>"<% } %> <% if (f.upper) { %>data-upper<% } %> <% if (f.min !== undefined) { %>min="<%= f.min %>"<% } %>
-        <% if (f.type === 'email') { %>autocomplete="email"<% } else if (f.type === 'tel') { %>autocomplete="tel"<% } %> <% if (f.type === 'date' && f.key === 'dob') { %>max="<%= new Date().toISOString().slice(0, 10) %>"<% } %>>
+      <% const t = { text: 'text', email: 'email', tel: 'tel', date: 'date', number: 'text' }[f.type] || 'text'; %>
+      <input id="<%= id %>" type="<%= t %>" value="<%= val %>" <%= disabled ? 'disabled' : '' %> placeholder="<%= f.placeholder || '' %>"
+        autocomplete="<%= ac %>" autocapitalize="<%= caps %>" <% if (f.upper || f.type === 'email' || f.inputmode) { %>autocorrect="off" spellcheck="false"<% } %>
+        <% if (inputmode) { %>inputmode="<%= inputmode %>"<% } %> <% if (f.type === 'number') { %>pattern="[0-9]*"<% } %> <% if (f.upper) { %>data-upper<% } %>
+        <% if (f.type === 'date' && f.key === 'dob') { %>max="<%= new Date().toISOString().slice(0, 10) %>"<% } %>>
     <% } %>
   <% } %>
   <div class="err" data-err></div>
