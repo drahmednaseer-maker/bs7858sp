@@ -43,7 +43,7 @@
               <div>Full name</div><div><%= [a.title && a.title.toUpperCase(), a.forenames, a.surname].filter(Boolean).join(' ') || '—' %><%= a.previous_names ? ' (previously ' + a.previous_names + ')' : '' %></div>
               <div>Date of birth</div><div><%= a.dob ? a.dob.split('-').reverse().join('/') : '—' %></div>
               <div>Nationality</div><div><%= a.nationality || '—' %></div>
-              <div>Address</div><div style="white-space:pre-wrap"><%= a.address || '—' %><%= a.postcode ? '\n' + a.postcode : '' %></div>
+              <div>Address</div><div style="white-space:pre-wrap"><%= a.address || '—' %><%= a.postcode ? '\n' + a.postcode : '' %><%= a.country && a.country !== 'GB' ? '\n' + countryName(a.country).toUpperCase() : '' %></div>
               <div>Mobile / email</div><div><%= a.mobile || '—' %> · <%= a.email || app.email %></div>
               <div>NI number</div><div><%= d.ni_number || '—' %></div>
               <div>SIA licence</div><div><%= d.sia_number || '—' %><%= d.sia_expiry ? ' · expires ' + d.sia_expiry.split('-').reverse().join('/') : '' %><% if (app.siaDays !== null && app.siaDays < 60) { %> <span class="flag"><%= app.siaDays < 0 ? 'EXPIRED' : 'expiring soon' %></span><% } %></div>

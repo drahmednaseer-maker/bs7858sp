@@ -1,19 +1,33 @@
 // Declarative definition of the 9 onboarding sections. The same schema drives
 // the applicant wizard, server-side validation, the admin review screen and the PDF report.
 const { company, screening } = require('./config');
+const { COUNTRY_OPTIONS } = require('./countries');
+
+// UK numbers (07700 900123, 020 7946 0000, +44 7700 900123, +44 (0)20…) or any international
+// number written with its country code (+33 6 12 34 56 78, 0092 300 1234567).
+function validPhone(v) {
+  const s = String(v).replace(/[\s().-]/g, '');
+  const uk = s.replace(/^(\+|00)440?/, '0');
+  if (uk !== s || s.startsWith('0') && !s.startsWith('00')) {
+    // UK: mobiles (07…) are always 11 digits; some landlines are 10.
+    return uk.startsWith('07') ? /^07\d{9}$/.test(uk) : /^0[1-9]\d{8,9}$/.test(uk);
+  }
+  return /^(\+|00)[1-9]\d{6,14}$/.test(s);
+}
 
 const YES_NO = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }];
 const PNTS = { value: 'prefer_not', label: 'Prefer not to say' };
 const opts = (...labels) => labels.map((l) => (typeof l === 'string' ? { value: l.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), label: l } : l));
 
 const PATTERNS = {
-  postcode: { re: /^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$/i, msg: 'Enter a valid UK postcode' },
+  // Enforced only when the address country is the United Kingdom (see validateSection).
+  postcode: { re: /^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$/i, msg: 'Enter a valid UK postcode, e.g. RM13 8UH' },
   ni: { re: /^(?!BG|GB|NK|KN|TN|NT|ZZ)[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z] ?\d{2} ?\d{2} ?\d{2} ?[A-D]$/i, msg: 'Enter a valid National Insurance number, e.g. AB 12 34 56 C' },
   sortcode: { re: /^\d{2}-?\d{2}-?\d{2}$/, msg: 'Enter a 6-digit sort code, e.g. 12-34-56' },
   account: { re: /^\d{8}$/, msg: 'Enter an 8-digit account number' },
   sia: { re: /^\d{4} ?\d{4} ?\d{4} ?\d{4}$/, msg: 'SIA licence numbers are 16 digits' },
   sharecode: { re: /^[A-Z0-9]{3} ?[A-Z0-9]{3} ?[A-Z0-9]{3}$/i, msg: 'Share codes are 9 characters, e.g. W4A B7C 9D2' },
-  phone: { re: /^[+0-9 ()-]{10,20}$/, msg: 'Enter a valid telephone number' },
+  phone: { re: { test: validPhone }, msg: 'Enter a UK number (e.g. 07700 900123) or an international number with its country code (e.g. +33 6 12 34 56 78)' },
   email: { re: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, msg: 'Enter a valid email address' },
 };
 
@@ -91,13 +105,15 @@ const sections = [
       { type: 'text', key: 'previous_names', label: 'Any previous names (maiden name, aliases)', width: 'half', help: 'Leave blank if none.' },
       { type: 'date', key: 'dob', label: 'Date of birth', width: 'half', required: true },
       { type: 'text', key: 'nationality', label: 'Nationality', width: 'half', required: true },
+      { type: 'select', key: 'country', label: 'Country of residence', width: 'half', required: true, options: COUNTRY_OPTIONS, default: 'GB' },
       { type: 'textarea', key: 'address', label: 'Home address', required: true, rows: 3 },
-      { type: 'text', key: 'postcode', label: 'Postcode', width: 'half', required: true, pattern: 'postcode', upper: true },
+      { type: 'text', key: 'postcode', label: 'Postcode / ZIP code', width: 'half', required: true, pattern: 'postcode', upper: true, help: 'UK addresses need a valid UK postcode. Leave blank if your country has none.' },
       { type: 'month', key: 'address_since', label: 'Living at this address since', width: 'half', required: true },
-      { type: 'repeater', key: 'previous_addresses', label: 'Previous addresses (last 5 years)', addLabel: 'Add previous address', help: 'Required for identity and consumer-information checks if you have lived at your current address for less than 5 years.',
+      { type: 'repeater', key: 'previous_addresses', label: 'Previous addresses (last 5 years)', addLabel: 'Add previous address', help: 'Required for identity and consumer-information checks if you have lived at your current address for less than 5 years. Include any addresses outside the UK.',
         fields: [
+          { type: 'select', key: 'country', label: 'Country', width: 'half', required: true, options: COUNTRY_OPTIONS, default: 'GB' },
           { type: 'textarea', key: 'address', label: 'Address', rows: 2, required: true },
-          { type: 'text', key: 'postcode', label: 'Postcode', width: 'third', required: true, pattern: 'postcode', upper: true },
+          { type: 'text', key: 'postcode', label: 'Postcode / ZIP code', width: 'third', required: true, pattern: 'postcode', upper: true },
           { type: 'month', key: 'from', label: 'From', width: 'third', required: true },
           { type: 'month', key: 'to', label: 'To', width: 'third', required: true },
         ] },
@@ -108,7 +124,9 @@ const sections = [
       { type: 'heading', title: 'Emergency contact' },
       { type: 'text', key: 'nok_name', label: 'Name', width: 'third', required: true },
       { type: 'text', key: 'nok_relationship', label: 'Relationship', width: 'third', required: true },
-      { type: 'tel', key: 'nok_phone', label: 'Telephone', width: 'third', required: true, pattern: 'phone' },
+      { type: 'tel', key: 'nok_phone', label: 'Telephone', width: 'third', required: true, pattern: 'phone', help: 'Include the country code if outside the UK.' },
+      { type: 'select', key: 'nok_country', label: 'Country', width: 'half', options: COUNTRY_OPTIONS, default: 'GB' },
+      { type: 'textarea', key: 'nok_address', label: 'Address (optional)', rows: 2 },
 
       { type: 'heading', title: 'Education and training' },
       { type: 'repeater', key: 'education', label: 'Schools, colleges, universities and training', addLabel: 'Add education / training', min: 1,
@@ -153,8 +171,9 @@ const sections = [
         fields: [
           { type: 'text', key: 'name', label: 'Name', width: 'half', required: true },
           { type: 'text', key: 'company', label: 'Company / relationship to you', width: 'half', required: true },
+          { type: 'select', key: 'country', label: 'Country', width: 'half', options: COUNTRY_OPTIONS, default: 'GB' },
           { type: 'textarea', key: 'address', label: 'Address', rows: 2 },
-          { type: 'text', key: 'postcode', label: 'Post code', width: 'third', pattern: 'postcode', upper: true },
+          { type: 'text', key: 'postcode', label: 'Postcode / ZIP code', width: 'third', pattern: 'postcode', upper: true },
           { type: 'tel', key: 'phone', label: 'Telephone', width: 'third', required: true, pattern: 'phone' },
           { type: 'email', key: 'email', label: 'Email address', width: 'third', required: true, pattern: 'email' },
         ] },
@@ -345,8 +364,8 @@ const sections = [
       { type: 'radio', key: 'sex', label: '3. Are you male or female? (as recorded by HMRC)', inline: true, required: true, options: opts('Male', 'Female') },
       { type: 'date', key: 'dob', label: '4. Date of birth', width: 'half', required: true, prefill: 'application.dob' },
       { type: 'textarea', key: 'address', label: '5. Home address', rows: 3, required: true, prefill: 'application.address' },
-      { type: 'text', key: 'postcode', label: 'Postcode', width: 'half', required: true, pattern: 'postcode', upper: true, prefill: 'application.postcode' },
-      { type: 'text', key: 'country', label: 'Country', width: 'half', default: 'United Kingdom' },
+      { type: 'text', key: 'postcode', label: 'Postcode / ZIP code', width: 'half', required: true, pattern: 'postcode', upper: true, prefill: 'application.postcode' },
+      { type: 'select', key: 'country', label: 'Country', width: 'half', required: true, options: COUNTRY_OPTIONS, prefill: 'application.country' },
       { type: 'text', key: 'ni', label: '6. National Insurance number (if known)', width: 'half', pattern: 'ni', upper: true, prefill: 'documents.ni_number' },
       { type: 'date', key: 'start_date', label: '7. Employment start date', width: 'half', help: 'Leave blank if not yet confirmed.' },
       { type: 'heading', title: '8. Employee statement', help: 'Select only one of the following statements A, B or C.' },
@@ -431,11 +450,13 @@ function validateSection(section, data, docsByField = {}) {
         if (f.required && v !== 'yes') errors[path] = 'Please confirm to continue.';
         continue;
       }
+      // Postcodes follow UK rules only for UK addresses; elsewhere they are free text and optional.
+      const foreignPostcode = f.pattern === 'postcode' && obj.country && obj.country !== 'GB';
       if (isEmpty(v)) {
-        if (f.required) errors[path] = 'This field is required.';
+        if (f.required && !foreignPostcode) errors[path] = 'This field is required.';
         continue;
       }
-      if (f.pattern && PATTERNS[f.pattern] && !PATTERNS[f.pattern].re.test(String(v).trim())) errors[path] = PATTERNS[f.pattern].msg;
+      if (f.pattern && !foreignPostcode && PATTERNS[f.pattern] && !PATTERNS[f.pattern].re.test(String(v).trim())) errors[path] = PATTERNS[f.pattern].msg;
       if (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) errors[path] = 'Enter a valid date.';
       if (f.type === 'month' && !/^\d{4}-\d{2}$/.test(v)) errors[path] = 'Enter month and year (YYYY-MM).';
     }

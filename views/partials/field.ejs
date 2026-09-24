@@ -4,7 +4,7 @@
   const w = f.width ? ' w-' + f.width : '';
   const showIf = f.showIf ? JSON.stringify(f.showIf) : '';
   const reqMark = f.required ? '<span class="req" aria-hidden="true">*</span>' : '';
-  const val = v === undefined || v === null ? '' : v;
+  const val = v === undefined || v === null ? (typeof f.default === 'string' ? f.default : '') : v;
 %>
 <% if (f.type === 'heading') { %>
   <div class="section-heading"><h3><%= f.title %></h3><% if (f.help) { %><p><%= f.help %></p><% } %></div>

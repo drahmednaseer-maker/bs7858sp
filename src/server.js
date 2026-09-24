@@ -14,7 +14,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
-Object.assign(app.locals, { visible: require('./schema').visible, optionLabel: require('./schema').optionLabel });
+Object.assign(app.locals, { visible: require('./schema').visible, optionLabel: require('./schema').optionLabel, countryName: require('./countries').countryName });
 
 app.use(helmet({
   contentSecurityPolicy: {
