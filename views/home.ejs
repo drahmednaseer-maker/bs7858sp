@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+<div class="auth-wrap">
+  <%- include('partials/auth-side') %>
+  <section class="auth-main">
+    <div class="auth-card">
+      <p class="eyebrow">Security officer onboarding</p>
+      <h2>Get started</h2>
+      <p class="sub">New applicants: create an account to begin. Already started? Sign in to continue where you left off.</p>
+      <div class="grid" style="gap:12px">
+        <a class="btn btn-primary btn-lg btn-block" href="/register">Create my account</a>
+        <a class="btn btn-lg btn-block" href="/login">Sign in</a>
+      </div>
+      <div class="card card-pad mt-2" style="background:var(--surface-2)">
+        <h3 style="font-size:.95rem">Before you start, have ready:</h3>
+        <ul class="small muted" style="margin:0;padding-left:1.2em">
+          <li>Passport or photo driving licence, and your SIA licence</li>
+          <li>Two proofs of address (e.g. bank statement / utility bill within 3 months)</li>
+          <li>Your National Insurance number and right-to-work share code (if applicable)</li>
+          <li>Details of everything you have done in the last 5 years, with contact emails</li>
+          <li>Two referees, your P45 (if you have one) and your bank details</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+<%- include('partials/footer') %>

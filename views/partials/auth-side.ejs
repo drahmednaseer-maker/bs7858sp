@@ -1,0 +1,13 @@
+<% const tick = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>'; %>
+<section class="auth-side">
+  <div class="logo-pill"><img src="/img/sp-logo.png" alt="<%= company.name %>"></div>
+  <p class="tagline"><%= company.tagline %> · SIA Approved Contractor since <%= company.since %></p>
+  <h1>Welcome to your onboarding with <%= company.name %></h1>
+  <p>Complete your pre-employment security screening securely online – from any phone, tablet or computer. Save your progress and come back at any time.</p>
+  <ul>
+    <li><%- tick %><span>Nine guided steps, from your application to your bank details</span></li>
+    <li><%- tick %><span>Sign documents electronically and photograph your ID straight from your phone</span></li>
+    <li><%- tick %><span>Your data is encrypted and seen only by our authorised screening team</span></li>
+  </ul>
+  <div class="badges"><% company.accreditations.slice(0, 7).forEach((b) => { %><img src="/img/accreditations/<%= b.file %>" alt="<%= b.label %>" title="<%= b.label %>"><% }) %></div>
+</section>

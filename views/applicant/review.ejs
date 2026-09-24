@@ -1,0 +1,40 @@
+<%- include('../partials/header') %>
+<div class="wrap narrow" style="max-width:1000px">
+  <%- include('../partials/flash') %>
+  <div class="page-head">
+    <div><p class="eyebrow mb-0"><%= application.ref %></p><h1>Review &amp; submit</h1><p>Check everything is correct. You can edit any section before submitting.</p></div>
+    <%- include('../partials/status', { s: application.status }) %>
+  </div>
+
+  <% sections.forEach((s) => { const st = state[s.key]; %>
+    <div class="card summary-section">
+      <div class="card-head">
+        <span class="step-num <%= st || '' %>"><%- st === 'complete' ? '&#10003;' : s.num %></span>
+        <h3 style="flex:1"><%= s.title %></h3>
+        <% if (st !== 'complete') { %><span class="badge tone-warn"><%= st === 'draft' ? 'Incomplete' : 'Not started' %></span><% } %>
+        <% if (editable) { %><a class="btn btn-sm" href="/apply/section/<%= s.key %>">Edit</a><% } %>
+      </div>
+      <% if (all[s.key]) { %>
+        <details class="card-body" <%= st !== 'complete' ? 'open' : '' %>>
+          <summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Show answers</summary>
+          <div class="mt"><%- include('../partials/summary-fields', { fields: s.fields, data: all[s.key], prefix: '', sectionKey: s.key, docs, fileBase, mask: true }) %></div>
+        </details>
+      <% } %>
+    </div>
+  <% }) %>
+
+  <% if (editable) { %>
+    <div class="card card-pad mt-2">
+      <h2>Final declaration</h2>
+      <% if (!allComplete) { %>
+        <div class="alert alert-warn">Please complete every section before submitting. Incomplete sections are marked above.</div>
+      <% } %>
+      <form method="post" action="/apply/submit">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label class="choice confirm"><input type="checkbox" name="final_confirm" value="yes" <%= allComplete ? '' : 'disabled' %>><span>I confirm that the information I have provided is true and complete to the best of my knowledge. I understand that <%= company.name %> will now verify it under BS 7858:2019 and that any false statement or omission may result in withdrawal of an offer or dismissal.</span></label>
+        <button class="btn btn-primary btn-lg mt" <%= allComplete ? '' : 'disabled' %>>Submit my application</button>
+      </form>
+    </div>
+  <% } %>
+</div>
+<%- include('../partials/footer') %>

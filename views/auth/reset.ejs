@@ -1,0 +1,14 @@
+<%- include('../partials/header') %>
+<div class="wrap narrow" style="max-width:520px">
+  <div class="card card-pad">
+    <h1>Choose a new password</h1>
+    <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <form method="post">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="fld"><label>New password</label><input type="password" name="password" autocomplete="new-password" required></div>
+      <div class="fld mt"><label>Confirm new password</label><input type="password" name="password2" autocomplete="new-password" required></div>
+      <button class="btn btn-primary mt">Update password</button>
+    </form>
+  </div>
+</div>
+<%- include('../partials/footer') %>

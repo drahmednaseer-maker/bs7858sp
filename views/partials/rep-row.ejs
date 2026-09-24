@@ -1,0 +1,12 @@
+<% const labels = f.fixedLabels || []; %>
+<div class="rep-row" data-row data-id="<%= row._id %>">
+  <div class="rep-row-head">
+    <b data-row-title><%= labels[i] || (f.label + ' ' + (i + 1)) %></b>
+    <% if (!disabled) { %><button type="button" class="rep-remove" data-remove>Remove</button><% } %>
+  </div>
+  <div class="rep-row-body form-grid" data-scope>
+    <% f.fields.forEach((sf) => { %>
+      <%- include('field', { f: sf, v: row[sf.key], path: path + '.' + row._id + '.' + sf.key, sectionKey, docs, disabled }) %>
+    <% }) %>
+  </div>
+</div>

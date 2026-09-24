@@ -1,0 +1,37 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <%- include('../partials/flash') %>
+  <div class="page-head"><div><h1>Applicants</h1><p><%= list.length %> result<%= list.length === 1 ? '' : 's' %></p></div></div>
+  <div class="pill-nav">
+    <a href="/admin/applications<%= q ? '?q=' + encodeURIComponent(q) : '' %>" class="<%= !status ? 'on' : '' %>">All</a>
+    <% Object.entries(STATUSES).forEach(([k, s]) => { %><a href="?status=<%= k %><%= q ? '&q=' + encodeURIComponent(q) : '' %>" class="<%= status === k ? 'on' : '' %>"><%= s.label %></a><% }) %>
+  </div>
+  <form class="filter-bar" method="get">
+    <input type="text" name="q" value="<%= q %>" placeholder="Search name, reference, email, SIA number…" aria-label="Search">
+    <input type="hidden" name="status" value="<%= status %>">
+    <button class="btn">Search</button>
+  </form>
+  <div class="card">
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Applicant</th><th>Position</th><th>Forms</th><th>Status</th><th>Checks</th><th>SIA expiry</th><th>Screening due</th><th></th></tr></thead>
+        <tbody>
+          <% if (!list.length) { %><tr><td colspan="8" class="muted">No applicants found.</td></tr><% } %>
+          <% list.forEach((a) => { %>
+            <tr>
+              <td><a class="rowlink" href="/admin/applications/<%= a.id %>"><%= a.name %></a><div class="small muted"><%= a.ref %> · <%= a.email %></div></td>
+              <td><%= a.position || '—' %></td>
+              <td style="min-width:110px"><div class="small"><%= a.progress.done %>/<%= a.progress.total %></div><div class="progress-line"><i style="width:<%= a.progress.pct %>%"></i></div></td>
+              <td><%- include('../partials/status', { s: a.status }) %></td>
+              <td class="nowrap"><%= a.checksDone %>/<%= a.checksTotal %></td>
+              <td class="nowrap"><% if (a.siaExpiry) { %><span class="<%= a.siaDays < 0 ? 'flag' : a.siaDays < 60 ? '' : '' %>"><%= fmtDate(a.siaExpiry) %></span><% } else { %><span class="muted">—</span><% } %></td>
+              <td class="nowrap"><% if (a.deadline && !['cleared','rejected','withdrawn'].includes(a.status)) { %><span class="badge <%= a.deadline.daysLeft < 0 ? 'tone-bad' : a.deadline.daysLeft < 14 ? 'tone-warn' : 'tone-neutral' %> plain"><%= fmtDate(a.deadline.due) %></span><% } else { %><span class="muted">—</span><% } %></td>
+              <td><a class="btn btn-sm" href="/admin/applications/<%= a.id %>">Open</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>

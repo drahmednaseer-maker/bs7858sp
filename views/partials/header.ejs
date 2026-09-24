@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title><%= title ? title + ' · ' : '' %><%= company.name %></title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0c2547">
+<link rel="icon" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css?v=2">
+<meta name="csrf-token" content="<%= csrf %>">
+</head>
+<body>
+<header class="topbar">
+  <div class="in">
+    <a class="brand" href="/">
+      <img src="/img/sp-logo.png" alt="<%= company.name %>">
+      <span class="brand-sub">Onboarding &amp; Screening<br>BS 7858:2019</span>
+    </a>
+    <% if (user) { %>
+    <button class="menu-btn" type="button" data-menu aria-label="Menu">Menu</button>
+    <nav class="nav" id="nav">
+      <% if (user.role === 'applicant') { %>
+        <a href="/apply" class="<%= path === '/apply' || path === '/' ? 'on' : '' %>">My onboarding</a>
+        <a href="/apply/review" class="<%= path.startsWith('/apply/review') ? 'on' : '' %>">Review &amp; submit</a>
+        <a href="/apply/account" class="<%= path.startsWith('/apply/account') ? 'on' : '' %>">Account</a>
+      <% } else { %>
+        <a href="/admin" class="<%= path === '/admin' || path === '/admin/' ? 'on' : '' %>">Dashboard</a>
+        <a href="/admin/applications" class="<%= path.startsWith('/admin/applications') ? 'on' : '' %>">Applicants</a>
+        <a href="/admin/emails" class="<%= path.startsWith('/admin/emails') ? 'on' : '' %>">Outbox</a>
+        <a href="/admin/insights" class="<%= path.startsWith('/admin/insights') ? 'on' : '' %>">Diversity</a>
+        <% if (user.role === 'superadmin') { %>
+        <a href="/admin/users" class="<%= path.startsWith('/admin/users') ? 'on' : '' %>">Staff</a>
+        <a href="/admin/audit" class="<%= path.startsWith('/admin/audit') ? 'on' : '' %>">Audit</a>
+        <% } %>
+        <a href="/admin/account" class="<%= path.startsWith('/admin/account') ? 'on' : '' %>">Account</a>
+      <% } %>
+      <span class="who"><%= user.first_name %> <%= user.last_name %></span>
+      <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Sign out</button></form>
+    </nav>
+    <% } else { %>
+    <nav class="nav nav-public">
+      <a href="/login" class="<%= path === '/login' ? 'on' : '' %>">Sign in</a>
+      <a href="/register" class="<%= path === '/register' ? 'on' : '' %>">Register</a>
+    </nav>
+    <% } %>
+  </div>
+</header>
+<main>

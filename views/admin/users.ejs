@@ -1,0 +1,42 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <%- include('../partials/flash') %>
+  <div class="page-head"><div><h1>Staff users</h1><p>Super admins can see everything and manage staff. Screening officers can review applicants and record checks.</p></div></div>
+  <% if (temp) { %><div class="alert alert-success"><strong>Temporary password for <%= temp.email %></strong><code style="font-size:1.05rem"><%= temp.password %></code> — share this securely. They should change it after signing in (Account page).</div><% } %>
+  <div class="split">
+    <div class="card"><div class="table-wrap"><table class="tbl">
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <% users.forEach((u) => { %>
+          <tr>
+            <td><b><%= u.first_name %> <%= u.last_name %></b></td>
+            <td><%= u.email %></td>
+            <td><span class="badge plain <%= u.role === 'superadmin' ? 'tone-info' : 'tone-neutral' %>"><%= u.role === 'superadmin' ? 'Super admin' : 'Screening officer' %></span></td>
+            <td class="small muted nowrap"><%= u.last_login ? fmtDateTime(u.last_login) : 'Never' %></td>
+            <td><span class="badge <%= u.active ? 'tone-good' : 'tone-bad' %>"><%= u.active ? 'Active' : 'Disabled' %></span></td>
+            <td class="nowrap">
+              <% if (u.id !== user.id) { %>
+                <form method="post" action="/admin/users/<%= u.id %>/toggle" style="display:inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-sm"><%= u.active ? 'Disable' : 'Enable' %></button></form>
+                <form method="post" action="/admin/users/<%= u.id %>/reset" style="display:inline" data-confirm="Generate a new temporary password?"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-sm">Reset password</button></form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div></div>
+    <div class="card">
+      <div class="card-head"><h3>Add staff user</h3></div>
+      <div class="card-body">
+        <form method="post" action="/admin/users" class="form-grid">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <div class="fld w-half"><label>First name</label><input type="text" name="first_name" required></div>
+          <div class="fld w-half"><label>Last name</label><input type="text" name="last_name" required></div>
+          <div class="fld"><label>Email</label><input type="email" name="email" required></div>
+          <div class="fld"><label>Role</label><select name="role"><option value="reviewer">Screening officer</option><option value="superadmin">Super admin</option></select></div>
+          <div class="fld"><button class="btn btn-primary">Create user</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>

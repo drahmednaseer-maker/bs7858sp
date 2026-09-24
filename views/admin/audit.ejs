@@ -1,0 +1,20 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <div class="page-head"><div><h1>Audit log</h1><p>Latest 500 events across the system, including sign-ins, document views and decisions.</p></div></div>
+  <div class="card"><div class="table-wrap"><table class="tbl">
+    <thead><tr><th>Date / time</th><th>User</th><th>Action</th><th>Detail</th><th>Application</th><th>IP</th></tr></thead>
+    <tbody>
+      <% log.forEach((l) => { %>
+        <tr>
+          <td class="nowrap small"><%= fmtDateTime(l.created_at) %></td>
+          <td><%= l.actor %></td>
+          <td><%= l.action.replace(/_/g, ' ') %></td>
+          <td class="small"><%= l.detail || '' %></td>
+          <td><% if (l.ref) { %><a href="/admin/applications/<%= l.application_id %>"><%= l.ref %></a><% } %></td>
+          <td class="small muted"><%= l.ip || '' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table></div></div>
+</div>
+<%- include('../partials/footer') %>

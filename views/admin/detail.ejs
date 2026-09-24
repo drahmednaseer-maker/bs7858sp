@@ -1,0 +1,449 @@
+<%- include('../partials/header') %>
+<%
+  const a = all.application || {}; const d = all.documents || {};
+  const photo = docs.find((x) => x.field_key === 'documents:photo_files' && /image\/(jpeg|png|webp)/.test(x.mime));
+  const initials = (app.name || '?').split(' ').map((s) => s[0]).slice(0, 2).join('');
+  const base = '/admin/applications/' + app.id;
+  const tabs = [['overview', 'Overview'], ['application', 'Application forms'], ['documents', 'Documents', docs.length], ['checks', 'Screening checks', checks.filter((c) => c.status === 'pass' || c.status === 'na').length + '/' + checks.length], ['verification', 'History & references', verifs.length], ['employer', 'Employer sections'], ['decision', 'Authorisation'], ['reports', 'Reports', reports.length], ['audit', 'Audit & emails']];
+  const vTone = { not_sent: 'neutral', sent: 'info', chased: 'warn', received: 'info', verified: 'good', unable: 'bad' };
+  const cTone = { pending: 'neutral', pass: 'good', fail: 'bad', refer: 'warn', na: 'neutral' };
+  const cLabel = { pending: 'Pending', pass: 'Pass', fail: 'Fail', refer: 'Refer', na: 'N/A' };
+  const fmtYM = (ym) => { if (!ym) return ''; const [y, m] = ym.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1] + ' ' + y; };
+%>
+<div class="wrap">
+  <%- include('../partials/flash') %>
+  <p class="small"><a href="/admin/applications">← All applicants</a></p>
+  <div class="applicant-head">
+    <div class="avatar"><% if (photo) { %><img src="<%= fileBase %><%= photo.id %>" alt=""><% } else { %><%= initials %><% } %></div>
+    <div style="flex:1;min-width:220px">
+      <h1 style="margin:0"><%= app.name %></h1>
+      <div class="muted small"><%= app.ref %> · <%= app.position || 'Position not stated' %> · <%= app.email %></div>
+    </div>
+    <div class="btn-row">
+      <%- include('../partials/status', { s: app.status }) %>
+      <% if (app.deadline && !['cleared','rejected','withdrawn'].includes(app.status)) { %>
+        <span class="badge <%= app.deadline.daysLeft < 0 ? 'tone-bad' : app.deadline.daysLeft < 14 ? 'tone-warn' : 'tone-neutral' %>"><%= app.deadline.daysLeft < 0 ? Math.abs(app.deadline.daysLeft) + ' days overdue' : app.deadline.daysLeft + ' days to complete' %></span>
+      <% } %>
+      <a class="btn btn-dark btn-sm" href="<%= base %>/report.pdf" target="_blank">Screening report (PDF)</a>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <% tabs.forEach(([k, l, c]) => { %><a href="?tab=<%= k %>" class="<%= tab === k ? 'on' : '' %>"><%= l %><% if (c !== undefined) { %><span class="count"><%= c %></span><% } %></a><% }) %>
+  </nav>
+
+  <% if (tab === 'overview') { %>
+    <div class="split">
+      <div>
+        <% if (raw.status === 'in_progress') { %><div class="alert alert-info">The applicant is still completing their forms (<%= app.progress.done %>/<%= app.progress.total %> sections). Screening starts when they submit.</div><% } %>
+        <div class="card">
+          <div class="card-head"><h3>Key details</h3></div>
+          <div class="card-body">
+            <div class="kv">
+              <div>Full name</div><div><%= [a.title && a.title.toUpperCase(), a.forenames, a.surname].filter(Boolean).join(' ') || '—' %><%= a.previous_names ? ' (previously ' + a.previous_names + ')' : '' %></div>
+              <div>Date of birth</div><div><%= a.dob ? a.dob.split('-').reverse().join('/') : '—' %></div>
+              <div>Nationality</div><div><%= a.nationality || '—' %></div>
+              <div>Address</div><div style="white-space:pre-wrap"><%= a.address || '—' %><%= a.postcode ? '\n' + a.postcode : '' %></div>
+              <div>Mobile / email</div><div><%= a.mobile || '—' %> · <%= a.email || app.email %></div>
+              <div>NI number</div><div><%= d.ni_number || '—' %></div>
+              <div>SIA licence</div><div><%= d.sia_number || '—' %><%= d.sia_expiry ? ' · expires ' + d.sia_expiry.split('-').reverse().join('/') : '' %><% if (app.siaDays !== null && app.siaDays < 60) { %> <span class="flag"><%= app.siaDays < 0 ? 'EXPIRED' : 'expiring soon' %></span><% } %></div>
+              <div>Right to work</div><div><%= d.rtw_route ? optionLabel(sections[2].fields.find((f) => f.key === 'rtw_route'), d.rtw_route) : '—' %><%= d.rtw_share_code ? ' · share code ' + d.rtw_share_code : '' %></div>
+              <div>DBS</div><div><%= d.dbs_number || '—' %><%= d.dbs_update_service === 'yes' ? ' · on Update Service' : '' %></div>
+              <div>Convictions declared</div><div><%= a.convictions || '—' %><% if ((all.declaration || {}).court_orders === 'yes') { %><div class="flag">Court orders / CCJs declared: <%= all.declaration.court_details %></div><% } %></div>
+              <div>Submitted</div><div><%= raw.submitted_at ? fmtDateTime(raw.submitted_at) : 'Not yet' %></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt">
+          <div class="card-head"><h3 style="flex:1"><%= screening.periodYears %>-year history</h3><span class="badge plain <%= gaps.coveragePct === 100 ? 'tone-good' : 'tone-bad' %>"><%= gaps.coveragePct %>% covered</span></div>
+          <div class="card-body">
+            <% if (gaps.gaps.length) { %><div class="alert alert-error"><strong>Gaps in history</strong><%= gaps.gaps.map((g) => fmtYM(g.from) + (g.months > 1 ? ' – ' + fmtYM(g.to) : '') + ' (' + g.months + ' mo)').join(', ') %></div><% } %>
+            <div class="table-wrap"><table class="tbl">
+              <thead><tr><th>From</th><th>To</th><th>Activity</th><th>Verification</th></tr></thead>
+              <tbody>
+                <% (a.history || []).slice().sort((x, y) => (y.from || '').localeCompare(x.from || '')).forEach((h) => { const v = verifs.find((x) => x.source_key === 'history:' + h._id); %>
+                  <tr><td class="nowrap"><%= fmtYM(h.from) %></td><td class="nowrap"><%= h.current === 'yes' ? 'Present' : fmtYM(h.to) %></td>
+                    <td><b><%= optionLabel(sections[1].fields.find((f) => f.key === 'history').fields[0], h.type) %></b><%= h.org_name ? ' – ' + h.org_name : '' %><div class="small muted"><%= h.job_title || h.details || '' %></div></td>
+                    <td><% if (v) { %><span class="badge tone-<%= vTone[v.status] %>"><%= VERIFICATION_STATUSES[v.status] %></span><% } else { %><span class="muted small">—</span><% } %></td></tr>
+                <% }) %>
+                <% if (!(a.history || []).length) { %><tr><td colspan="4" class="muted">No history entered yet.</td></tr><% } %>
+              </tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-head"><h3>Screening progress</h3></div>
+          <div class="card-body">
+            <ul class="log">
+              <% checks.forEach((c) => { %><li><span class="badge tone-<%= cTone[c.status] %>" style="min-width:72px;justify-content:center"><%= cLabel[c.status] %></span><a href="?tab=checks#check-<%= c.type %>"><%= c.label %></a></li><% }) %>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card mt">
+          <div class="card-head"><h3>Change status</h3></div>
+          <div class="card-body">
+            <form method="post" action="<%= base %>/status" class="grid" style="gap:10px">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <select name="status"><% Object.entries(STATUSES).forEach(([k, s]) => { %><option value="<%= k %>" <%= raw.status === k ? 'selected' : '' %>><%= s.label %></option><% }) %></select>
+              <input type="text" name="note" placeholder="Note for the audit log (optional)">
+              <button class="btn">Update status</button>
+            </form>
+            <p class="small muted mt mb-0">Use the <a href="?tab=decision">Authorisation</a> tab to formally clear or decline with a signature.</p>
+          </div>
+        </div>
+
+        <div class="card mt">
+          <div class="card-head"><h3>Request information</h3></div>
+          <div class="card-body">
+            <form method="post" action="<%= base %>/request-info" class="grid" style="gap:10px">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <textarea name="message" rows="3" placeholder="e.g. Please add your employment between Mar and Jun 2022 and upload a clearer photo of your passport."></textarea>
+              <button class="btn">Email applicant &amp; unlock form</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card mt">
+          <div class="card-head"><h3>Assigned screener</h3></div>
+          <div class="card-body">
+            <form method="post" action="<%= base %>/assign" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <select name="assigned_to"><option value="">Unassigned</option><% staff.forEach((s) => { %><option value="<%= s.id %>" <%= raw.assigned_to === s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option><% }) %></select>
+              <button class="btn btn-sm">Save</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card mt">
+          <div class="card-head"><h3>Applicant account</h3></div>
+          <div class="card-body">
+            <form method="post" action="/admin/users/<%= raw.user_id %>/reset" data-confirm="Generate a temporary password for this applicant?" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-sm" <%= user.role !== 'superadmin' ? 'disabled title="Super admin only"' : '' %>>Reset applicant password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'application') { %>
+    <div class="btn-row" style="margin-bottom:14px">
+      <span class="muted small">Sections marked confidential (diversity, health, bank) are excluded from the default PDF unless requested.</span>
+    </div>
+    <% sections.forEach((s) => { const st = state[s.key]; %>
+      <details class="card summary-section" <%= s.num <= 2 ? 'open' : '' %>>
+        <summary class="card-head" style="cursor:pointer;list-style:none">
+          <span class="step-num <%= st || '' %>"><%- st === 'complete' ? '&#10003;' : s.num %></span>
+          <h3 style="flex:1"><%= s.title %></h3>
+          <% if (s.confidential) { %><span class="badge tone-warn plain">Confidential</span><% } %>
+          <span class="badge <%= st === 'complete' ? 'tone-good' : st === 'draft' ? 'tone-warn' : 'tone-neutral' %>"><%= st === 'complete' ? 'Complete' : st === 'draft' ? 'Draft' : 'Not started' %></span>
+        </summary>
+        <div class="card-body">
+          <% if (all[s.key]) { %><%- include('../partials/summary-fields', { fields: s.fields, data: all[s.key], prefix: '', sectionKey: s.key, docs, fileBase, mask: user.role !== 'superadmin' }) %><% } else { %><p class="muted mb-0">Not started.</p><% } %>
+        </div>
+      </details>
+    <% }) %>
+
+  <% } else if (tab === 'documents') { %>
+    <% if (!docs.length) { %><div class="card card-pad muted">No documents uploaded yet.</div><% } %>
+    <%
+      const groups = {};
+      docs.forEach((x) => { const g = x.field_key.startsWith('admin:') ? 'Screening evidence (staff uploads)' : x.field_key.replace(/^[^:]+:/, '').replace(/\.[a-f0-9]{12}\./, ' › ').replace(/_files$/, '').replace(/_/g, ' '); (groups[g] = groups[g] || []).push(x); });
+    %>
+    <% Object.entries(groups).forEach(([g, list]) => { %>
+      <h3 class="mt" style="text-transform:capitalize"><%= g %></h3>
+      <div class="doc-grid">
+        <% list.forEach((x) => { %>
+          <a class="doc-tile" href="<%= fileBase %><%= x.id %>" target="_blank" rel="noopener">
+            <div class="pv"><% if (/image\/(jpeg|png|webp|gif)/.test(x.mime)) { %><img src="<%= fileBase %><%= x.id %>" alt="" loading="lazy"><% } else { %><span><%= x.mime === 'application/pdf' ? 'PDF' : 'FILE' %></span><% } %></div>
+            <div class="meta"><b><%= x.original_name %></b><span class="muted"><%= (x.size / 1048576).toFixed(1) %> MB · <%= fmtDate(x.created_at) %></span></div>
+          </a>
+        <% }) %>
+      </div>
+    <% }) %>
+
+  <% } else if (tab === 'checks') { %>
+    <div class="split">
+      <div>
+        <% checks.forEach((c) => { %>
+          <details class="check-card" id="check-<%= c.type %>" <%= c.status === 'pending' ? '' : '' %>>
+            <summary>
+              <span class="badge tone-<%= cTone[c.status] %>" style="min-width:76px;justify-content:center"><%= cLabel[c.status] %></span>
+              <b><%= c.label %></b>
+              <% if (c.checker) { %><span class="small muted"><%= c.checker %> · <%= fmtDateTime(c.checked_at) %></span><% } %>
+            </summary>
+            <div class="body">
+              <p class="small muted"><%= c.guidance %></p>
+              <% if (c.linkInfo) { %><p><a class="ext-link" href="<%= c.linkInfo.url %>" target="_blank" rel="noopener"><%= c.linkInfo.label %> ↗</a></p><% } %>
+              <% if (c.type === 'sanctions') { %><p class="small">Search for: <b><%= [a.forenames, a.surname].filter(Boolean).join(' ') %></b><%= a.previous_names ? ' and ' + a.previous_names : '' %> · DOB <%= a.dob ? a.dob.split('-').reverse().join('/') : '—' %> <button type="button" class="btn btn-sm btn-ghost" data-copy="<%= [a.forenames, a.surname].filter(Boolean).join(' ') %>">Copy name</button></p><% } %>
+              <% if (c.type === 'sia') { %><p class="small">Licence number: <b><%= d.sia_number || '—' %></b> <% if (d.sia_number) { %><button type="button" class="btn btn-sm btn-ghost" data-copy="<%= d.sia_number.replace(/\s/g, '') %>">Copy</button><% } %> · Type: <%= d.sia_type ? optionLabel(sections[2].fields.find((f) => f.key === 'sia_type'), d.sia_type) : '—' %> · Expiry: <%= d.sia_expiry ? d.sia_expiry.split('-').reverse().join('/') : '—' %></p><% } %>
+              <% if (c.type === 'rtw') { %><p class="small">Share code: <b><%= d.rtw_share_code || '—' %></b> <% if (d.rtw_share_code) { %><button type="button" class="btn btn-sm btn-ghost" data-copy="<%= d.rtw_share_code.replace(/\s/g, '') %>">Copy</button><% } %> · DOB: <%= a.dob ? a.dob.split('-').reverse().join('/') : '—' %> · Route: <%= d.rtw_route ? optionLabel(sections[2].fields.find((f) => f.key === 'rtw_route'), d.rtw_route) : '—' %></p><% } %>
+              <% if (c.type === 'dbs') { %><p class="small">Certificate number: <b><%= d.dbs_number || '—' %></b> · Update Service: <%= d.dbs_update_service === 'yes' ? 'Yes' : d.dbs_update_service === 'no' ? 'No' : '—' %></p><% } %>
+              <% if (c.docs) { const rel = docs.filter((x) => c.docs.some((k) => x.field_key === 'documents:' + k)); if (rel.length) { %>
+                <p class="small">Applicant documents: <% rel.forEach((x, i) => { %><a href="<%= fileBase %><%= x.id %>" target="_blank"><%= x.original_name %></a><%= i < rel.length - 1 ? ', ' : '' %><% }) %></p>
+              <% } } %>
+              <% const ev = docs.filter((x) => x.field_key === 'admin:check_' + c.type); if (ev.length) { %>
+                <p class="small">Evidence on file: <% ev.forEach((x, i) => { %><a href="<%= fileBase %><%= x.id %>" target="_blank"><%= x.original_name %></a><%= i < ev.length - 1 ? ', ' : '' %><% }) %></p>
+              <% } %>
+              <form method="post" action="<%= base %>/checks/<%= c.type %>?_csrf=<%= csrf %>" enctype="multipart/form-data" class="form-grid">
+                <div class="fld w-third"><label>Result</label><select name="status"><% Object.entries(cLabel).forEach(([k, l]) => { %><option value="<%= k %>" <%= c.status === k ? 'selected' : '' %>><%= l %></option><% }) %></select></div>
+                <div class="fld" style="flex:2 1 260px"><label>Reference / certificate / result ID</label><input type="text" name="reference" value="<%= c.reference || '' %>" placeholder="<%= c.type === 'sanctions' ? 'e.g. No match – searched 25/09/2026' : c.type === 'rtw' ? 'e.g. RTW check ref / expiry of permission' : '' %>"></div>
+                <div class="fld"><label>Notes</label><textarea name="notes" rows="2"><%= c.notes || '' %></textarea></div>
+                <div class="fld"><label>Attach evidence (screenshot / PDF of result)</label><input type="file" name="evidence" accept="image/*,application/pdf"></div>
+                <div class="fld"><button class="btn btn-primary">Save check</button></div>
+              </form>
+            </div>
+          </details>
+        <% }) %>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-head"><h3>Documents register</h3></div>
+          <div class="card-body">
+            <form method="post" action="<%= base %>/employer">
+              <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="part" value="register">
+              <% DOC_REGISTER.forEach((name, i) => { const r = (admin.documents_register || {})[name] || {}; %>
+                <div style="padding:8px 0;border-bottom:1px solid var(--line)">
+                  <div class="small" style="font-weight:600;margin-bottom:4px"><%= name %></div>
+                  <div class="inline-form">
+                    <select name="seen_<%= i %>" style="min-width:110px;flex:0 1 120px"><option value="">—</option><option value="copy" <%= r.seen === 'copy' ? 'selected' : '' %>>Copy</option><option value="original" <%= r.seen === 'original' ? 'selected' : '' %>>Original</option><option value="na" <%= r.seen === 'na' ? 'selected' : '' %>>N/A</option></select>
+                    <input type="text" name="comments_<%= i %>" value="<%= r.comments || '' %>" placeholder="Comments" style="min-width:120px">
+                  </div>
+                </div>
+              <% }) %>
+              <button class="btn btn-primary mt btn-block">Save register</button>
+            </form>
+          </div>
+        </div>
+        <div class="card mt">
+          <div class="card-head"><h3><%= screening.periodYears %>-year screening completed</h3></div>
+          <div class="card-body">
+            <form method="post" action="<%= base %>/employer" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="part" value="screening_completed">
+              <input type="date" name="date" value="<%= admin.screening_completed || '' %>">
+              <button class="btn btn-sm">Save</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'verification') { %>
+    <div class="page-head" style="margin-bottom:14px">
+      <div><h2 class="mb-0">History verification &amp; references</h2><p>Each period of the 5-year history and each referee gets a secure online response form. Requests are emailed<%= smtpConfigured ? '' : ' (SMTP not configured – emails go to the Outbox so you can send them manually)' %>.</p></div>
+      <% if (raw.status !== 'in_progress') { %>
+      <form method="post" action="<%= base %>/verifications/send-all" data-confirm="Send all unsent verification and reference requests now?">
+        <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-primary">Send all unsent requests</button>
+      </form>
+      <% } %>
+    </div>
+    <% if (raw.status === 'in_progress') { %><div class="alert alert-info">Verification requests become available once the applicant submits their application.</div><% } %>
+    <% if ((a.reference_consent || '') !== 'yes' && raw.status !== 'in_progress') { %><div class="alert alert-warn">The applicant has not authorised contact with referees.</div><% } %>
+    <% ['history', 'reference'].forEach((kind) => { const list = verifs.filter((v) => v.kind === kind); if (!list.length) return; %>
+      <h3 class="mt"><%= kind === 'history' ? 'Employment / activity history' : 'References' %></h3>
+      <% list.forEach((v) => { %>
+        <details class="check-card" <%= v.response && v.status === 'received' ? 'open' : '' %>>
+          <summary>
+            <span class="badge tone-<%= vTone[v.status] %>" style="min-width:120px;justify-content:center"><%= VERIFICATION_STATUSES[v.status] %></span>
+            <b><%= v.label %></b>
+            <span class="small muted"><%= v.code %><%= v.sent_at ? ' · sent ' + fmtDate(v.sent_at) : '' %><%= v.chased_at ? ' · chased ' + fmtDate(v.chased_at) : '' %></span>
+            <% if (v.response && v.response.concerns === 'Yes') { %><span class="badge tone-bad">Concerns raised</span><% } %>
+          </summary>
+          <div class="body">
+            <div class="grid grid-2">
+              <div>
+                <div class="kv small">
+                  <div>Contact</div><div><%= v.contact_name || '—' %></div>
+                  <div>Email</div><div><%= v.contact_email || '—' %></div>
+                  <div>Secure response link</div><div><% if (v.token) { %><button type="button" class="btn btn-sm" data-copy="<%= (typeof baseUrl !== 'undefined' ? baseUrl : '') %>/r/<%= v.token %>">Copy link</button><% } else { %><span class="muted">Created when first sent</span><% } %></div>
+                </div>
+                <% if (v.contact_email && raw.status !== 'in_progress') { %>
+                <form method="post" action="<%= base %>/verifications/<%= v.id %>/send" class="mt">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <button class="btn btn-sm btn-dark"><%= ['sent','chased'].includes(v.status) ? 'Send chaser (CL)' : v.status === 'not_sent' ? 'Email request' : 'Re-send request' %></button>
+                  <% if (v.token) { %><a class="btn btn-sm" href="mailto:<%= v.contact_email %>?subject=<%= encodeURIComponent('Verification request – ' + app.name) %>">Open in my email</a><% } %>
+                </form>
+                <% } %>
+                <% if (v.response) { %>
+                  <div class="card mt" style="background:var(--surface-2)"><div class="card-body">
+                    <b>Response received <%= fmtDateTime(v.responded_at) %></b>
+                    <div class="kv small mt">
+                      <% Object.entries(v.response).forEach(([k, val]) => { %><div><%= k.replace(/_/g, ' ').replace(/^\w/, (x) => x.toUpperCase()) %></div><div class="<%= k === 'concerns' && val === 'Yes' ? 'flag' : '' %>" style="white-space:pre-wrap"><%= val || '—' %></div><% }) %>
+                    </div>
+                  </div></div>
+                <% } %>
+              </div>
+              <form method="post" action="<%= base %>/verifications/<%= v.id %>" class="form-grid">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <div class="fld w-half"><label>Status</label><select name="status"><% Object.entries(VERIFICATION_STATUSES).forEach(([k, l]) => { %><option value="<%= k %>" <%= v.status === k ? 'selected' : '' %>><%= l %></option><% }) %></select></div>
+                <div class="fld w-half"><label>Code</label><select name="code"><% Object.entries(LETTER_CODES).forEach(([k, l]) => { %><option value="<%= k %>" <%= v.code === k ? 'selected' : '' %>><%= k %> – <%= l %></option><% }) %></select></div>
+                <div class="fld w-half"><label>Confirmed from</label><input type="month" name="confirmed_from" value="<%= v.confirmed_from || '' %>" placeholder="YYYY-MM"></div>
+                <div class="fld w-half"><label>Confirmed to</label><input type="month" name="confirmed_to" value="<%= v.confirmed_to || '' %>" placeholder="YYYY-MM"></div>
+                <div class="fld"><label>Contact email (override)</label><input type="email" name="contact_email" value="<%= v.contact_email || '' %>"></div>
+                <div class="fld"><label>Notes / audit comments</label><textarea name="notes" rows="2"><%= v.notes || '' %></textarea></div>
+                <div class="fld"><button class="btn btn-primary btn-sm">Save verification</button> <% if (v.updater) { %><span class="small muted">Last updated by <%= v.updater %></span><% } %></div>
+              </form>
+            </div>
+          </div>
+        </details>
+      <% }) %>
+    <% }) %>
+
+  <% } else if (tab === 'employer') { %>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><h3>Health questionnaire – employer's comments</h3></div>
+        <div class="card-body">
+          <form method="post" action="<%= base %>/employer">
+            <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="part" value="health">
+            <div class="fld"><label>Comments, including details of any actions to be taken</label><textarea name="comments" rows="5"><%= (admin.health || {}).comments || '' %></textarea></div>
+            <div class="fld mt"><div class="lbl">Employer's signature</div><div data-sig data-input="signature" data-value="<%= (admin.health || {}).signature ? JSON.stringify((admin.health || {}).signature) : '' %>"></div></div>
+            <button class="btn btn-primary mt">Save</button>
+            <% if ((admin.health || {}).by) { %><span class="small muted">Last saved by <%= admin.health.by %> · <%= fmtDateTime(admin.health.at) %></span><% } %>
+          </form>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-head"><h3>48-hour opt-out – employer countersignature</h3></div>
+          <div class="card-body">
+            <p class="small">Applicant's choice: <b><%= (all.optout || {}).opt_out === 'yes' ? 'Opted out of the 48-hour limit' : (all.optout || {}).opt_out === 'no' ? 'Did not opt out' : 'Not completed' %></b></p>
+            <form method="post" action="<%= base %>/employer">
+              <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="part" value="optout">
+              <div class="lbl">Signed for and on behalf of the Employer</div>
+              <div data-sig data-input="signature" data-value="<%= (admin.optout || {}).signature ? JSON.stringify(admin.optout.signature) : '' %>"></div>
+              <button class="btn btn-primary mt">Save countersignature</button>
+            </form>
+          </div>
+        </div>
+        <div class="card mt">
+          <div class="card-head"><h3>Pre-employment checklist – bank details</h3></div>
+          <div class="card-body">
+            <p class="small"><%= (admin.bank || {}).by ? 'Seen / copied / checked by ' + admin.bank.by + ' on ' + fmtDateTime(admin.bank.at) : 'Not yet checked.' %></p>
+            <form method="post" action="<%= base %>/employer"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="part" value="bank"><button class="btn btn-sm">Mark as seen / copied / checked by me</button></form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'decision') { %>
+    <% const auth = admin.authorisation || {}; const pendingChecks = checks.filter((c) => ['pending','fail','refer'].includes(c.status)); %>
+    <div class="grid grid-2">
+      <div>
+        <div class="card">
+          <div class="card-head"><h3>Authorisation record</h3></div>
+          <div class="card-body">
+            <% [['conditional', 'Conditional (provisional employment)'], ['confirmed', 'Confirmed (full screening complete)'], ['declined', 'Declined']].forEach(([k, l]) => { const x = auth[k]; %>
+              <div style="padding:10px 0;border-bottom:1px solid var(--line)">
+                <b><%= l %></b>
+                <% if (x) { %>
+                  <div class="small">Authorised by <%= x.by %> · <%= fmtDateTime(x.at) %><%= x.start_date ? ' · Start date ' + x.start_date.split('-').reverse().join('/') : '' %></div>
+                  <% if (x.notes) { %><div class="small muted"><%= x.notes %></div><% } %>
+                  <img src="<%= x.signature.image %>" alt="Signature" style="height:48px;margin-top:6px;border:1px solid var(--line);border-radius:4px;background:#fff">
+                <% } else { %><div class="small muted">Not given</div><% } %>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+        <div class="card mt">
+          <div class="card-body small muted">
+            <b style="color:var(--ink)">BS 7858 guidance.</b> Conditional employment may begin once identity, right to work, SIA licence, criminal record declaration, sanctions and financial checks are complete and the applicant has signed the Letter of Authority – with the remainder of the 5-year history verified within 12 weeks. Full confirmation requires all checks completed.
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Record a decision</h3></div>
+        <div class="card-body">
+          <% if (pendingChecks.length) { %><div class="alert alert-warn"><strong><%= pendingChecks.length %> check(s) not passed</strong><%= pendingChecks.map((c) => c.label).join(', ') %></div><% } %>
+          <form method="post" action="<%= base %>/authorise" class="form-grid" data-confirm="Record this authorisation decision? A signed report snapshot will be saved.">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="fld">
+              <div class="lbl">Decision</div>
+              <div class="choices stack">
+                <label class="choice"><input type="radio" name="stage" value="conditional" checked><span>Conditional – provisionally cleared to start</span></label>
+                <label class="choice"><input type="radio" name="stage" value="confirmed"><span>Confirmed – screening complete, cleared</span></label>
+                <label class="choice"><input type="radio" name="stage" value="declined"><span>Declined – not cleared</span></label>
+              </div>
+            </div>
+            <div class="fld w-half"><label>Employment start date</label><input type="date" name="start_date"></div>
+            <div class="fld"><label>Notes</label><textarea name="notes" rows="2" placeholder="Reason / conditions"></textarea></div>
+            <div class="fld"><div class="lbl">Authorised signature</div><div data-sig data-input="signature"></div></div>
+            <% if (pendingChecks.length) { %><div class="fld"><label class="choice confirm"><input type="checkbox" name="override" value="yes"><span>Override: confirm clearance although checks are outstanding (reason recorded in notes)</span></label></div><% } %>
+            <div class="fld"><label class="choice confirm"><input type="checkbox" name="notify" value="yes" checked><span>Email the applicant with the outcome</span></label></div>
+            <div class="fld"><button class="btn btn-primary">Record decision</button></div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'reports') { %>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><h3>Generate screening report</h3></div>
+        <div class="card-body">
+          <p class="small muted">A complete BS 7858 screening file: screening record, verification log, documents register, checks, authorisation, all nine forms with e-signatures, ID images and the audit trail.</p>
+          <form method="get" action="<%= base %>/report.pdf" target="_blank" class="grid" style="gap:10px">
+            <label class="choice confirm"><input type="checkbox" name="images" value="0"><span>Exclude document images (smaller file)</span></label>
+            <label class="choice confirm"><input type="checkbox" name="diversity" value="1"><span>Include diversity monitoring (normally held separately)</span></label>
+            <% if (user.role === 'superadmin') { %><label class="choice confirm"><input type="checkbox" name="fullBank" value="1"><span>Show full bank account number (payroll only)</span></label><% } %>
+            <div class="btn-row"><button class="btn btn-dark">Open PDF</button><button class="btn" name="download" value="1">Download</button></div>
+          </form>
+          <form method="post" action="<%= base %>/snapshot" class="inline-form mt">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <input type="text" name="reason" placeholder="Reason, e.g. Management review">
+            <button class="btn">Save stored snapshot</button>
+          </form>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Stored reports</h3></div>
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th>Created</th><th>Reason</th><th>By</th><th></th></tr></thead>
+          <tbody>
+            <% reports.forEach((r) => { %><tr><td class="nowrap"><%= fmtDateTime(r.created_at) %></td><td><%= r.reason %></td><td><%= r.by_name || 'System' %></td><td><a class="btn btn-sm" href="/admin/reports/<%= r.id %>" target="_blank">Open</a></td></tr><% }) %>
+            <% if (!reports.length) { %><tr><td colspan="4" class="muted">Snapshots are saved automatically on submission and on each authorisation decision.</td></tr><% } %>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'audit') { %>
+    <div class="split">
+      <div class="card">
+        <div class="card-head"><h3>Audit trail</h3></div>
+        <div class="card-body"><ul class="log">
+          <% log.forEach((l) => { %><li><time><%= fmtDateTime(l.created_at) %></time><span><b><%= l.actor %></b> · <%= l.action.replace(/_/g, ' ') %><%= l.detail ? ' – ' + l.detail : '' %> <span class="muted small"><%= l.ip || '' %></span></span></li><% }) %>
+        </ul></div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-head"><h3>Emails</h3></div>
+          <div class="card-body"><ul class="log">
+            <% emails.forEach((e) => { %><li><time><%= fmtDateTime(e.created_at) %></time><span><a href="/admin/emails/<%= e.id %>"><%= e.subject %></a><br><span class="small muted"><%= e.to_addr %> · <%= e.status %></span></span></li><% }) %>
+            <% if (!emails.length) { %><li class="muted">No emails.</li><% } %>
+          </ul></div>
+        </div>
+        <% if (user.role === 'superadmin') { %>
+        <div class="card mt" style="border-color:#f5c2c2">
+          <div class="card-head"><h3 style="color:var(--bad)">Erase applicant data</h3></div>
+          <div class="card-body">
+            <p class="small muted">Permanently deletes this application, all uploads, reports and the applicant's account (e.g. for a GDPR erasure request after the retention period). This cannot be undone.</p>
+            <form method="post" action="<%= base %>/delete" data-confirm="Permanently delete ALL data for this applicant? This cannot be undone.">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <input type="text" name="confirm_ref" placeholder="Type <%= app.ref %> to confirm">
+              <button class="btn btn-bad mt btn-sm">Permanently delete</button>
+            </form>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+</div>
+<%- include('../partials/footer') %>

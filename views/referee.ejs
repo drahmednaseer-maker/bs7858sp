@@ -1,0 +1,41 @@
+<%- include('partials/header') %>
+<div class="referee-wrap">
+  <div class="card">
+    <div class="card-pad" style="border-bottom:1px solid var(--line)">
+      <p class="eyebrow mb-0">BS 7858:2019 security screening</p>
+      <h1 style="margin-top:4px"><%= v.kind === 'reference' ? 'Reference request' : 'Employment / history verification' %></h1>
+      <p class="muted mb-0">for <b><%= name %></b> · <%= v.label.replace(/^Reference \d+ – /, '') %></p>
+    </div>
+    <% if (done) { %>
+      <div class="card-pad" style="text-align:center;padding:48px 24px">
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--good-soft);color:var(--good);display:grid;place-items:center;margin:0 auto 16px;font-size:2rem">&#10003;</div>
+        <h2>Thank you</h2>
+        <p class="muted">Your response has been securely received by <%= company.name %>. You can now close this page.</p>
+      </div>
+    <% } else { %>
+      <form method="post" class="card-pad" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <p class="small muted"><%= name %> has applied to work with <%= company.name %> and has signed a Letter of Authority allowing us to contact you. Security-industry employers are required by BS 7858 to verify an applicant's history. The information you provide is confidential and is used only for screening.</p>
+        <% if (Object.keys(errors).length) { %><div class="alert alert-error">Please complete the highlighted fields.</div><% } %>
+        <div class="form-grid">
+          <% fields.forEach((f) => { %>
+            <div class="fld <%= ['dates_from','dates_to','respondent_phone','known_years','respondent_position','organisation'].includes(f.key) ? 'w-half' : '' %> <%= errors[f.key] ? 'has-error' : '' %>">
+              <label for="r-<%= f.key %>"><%= f.label %><% if (f.required) { %><span class="req">*</span><% } %></label>
+              <% if (f.type === 'textarea') { %><textarea id="r-<%= f.key %>" name="<%= f.key %>" rows="4"><%= values[f.key] || '' %></textarea>
+              <% } else if (f.type === 'select') { %><select id="r-<%= f.key %>" name="<%= f.key %>"><option value="">Select…</option><% f.options.forEach((o) => { %><option <%= values[f.key] === o ? 'selected' : '' %>><%= o %></option><% }) %></select>
+              <% } else { %><input id="r-<%= f.key %>" type="<%= f.type === 'month' ? 'month' : 'text' %>" name="<%= f.key %>" value="<%= values[f.key] || '' %>" <%= f.type === 'month' ? 'placeholder=YYYY-MM' : '' %>><% } %>
+              <div class="err"><%= errors[f.key] || '' %></div>
+            </div>
+          <% }) %>
+          <div class="fld <%= errors.declare ? 'has-error' : '' %>">
+            <label class="choice confirm"><input type="checkbox" name="declare" value="yes"><span>I confirm that the information given is accurate to the best of my knowledge and that I am authorised to provide it.</span></label>
+            <div class="err"><%= errors.declare || '' %></div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-lg mt">Submit response</button>
+      </form>
+    <% } %>
+  </div>
+  <p class="small muted mt" style="text-align:center"><%= company.name %> · <%= company.phone %> · <%= company.email %></p>
+</div>
+<%- include('partials/footer') %>

@@ -1,0 +1,18 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <div class="page-head"><div><h1>Diversity monitoring</h1><p>Aggregated, anonymous statistics from <%= n %> submitted application<%= n === 1 ? '' : 's' %>. Individual responses are not shown here and do not form part of the screening decision.</p></div></div>
+  <% if (n < 5) { %><div class="alert alert-info">Figures are shown once there are enough responses to be meaningful. Small numbers can identify individuals, so treat them with care.</div><% } %>
+  <div class="grid grid-2">
+    <% Object.values(agg).forEach((g) => { const max = Math.max(1, ...Object.values(g.counts)); %>
+      <div class="card">
+        <div class="card-head"><h3><%= g.label %></h3></div>
+        <div class="card-body">
+          <% Object.entries(g.counts).forEach(([label, c]) => { %>
+            <div class="bar-row"><span class="small"><%= label %></span><span class="bar"><i style="width:<%= (c / max) * 100 %>%"></i></span><span class="small right"><%= c %></span></div>
+          <% }) %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<%- include('../partials/footer') %>

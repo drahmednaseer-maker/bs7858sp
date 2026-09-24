@@ -1,0 +1,28 @@
+<%- include('../partials/header') %>
+<div class="auth-wrap">
+  <%- include('../partials/auth-side') %>
+  <section class="auth-main">
+    <div class="auth-card">
+      <h2>Create your account</h2>
+      <p class="sub">Use your own email and mobile – we will use these to contact you about your application.</p>
+      <form method="post" action="/register" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="form-grid">
+          <div class="fld w-half <%= errors.first_name ? 'has-error' : '' %>"><label for="fn">First name</label><input id="fn" type="text" name="first_name" autocomplete="given-name" value="<%= values.first_name || '' %>"><div class="err"><%= errors.first_name || '' %></div></div>
+          <div class="fld w-half <%= errors.last_name ? 'has-error' : '' %>"><label for="ln">Last name</label><input id="ln" type="text" name="last_name" autocomplete="family-name" value="<%= values.last_name || '' %>"><div class="err"><%= errors.last_name || '' %></div></div>
+          <div class="fld <%= errors.email ? 'has-error' : '' %>"><label for="em">Email address</label><input id="em" type="email" name="email" autocomplete="email" value="<%= values.email || '' %>"><div class="err"><%= errors.email || '' %></div></div>
+          <div class="fld <%= errors.phone ? 'has-error' : '' %>"><label for="ph">Mobile number</label><input id="ph" type="tel" name="phone" autocomplete="tel" value="<%= values.phone || '' %>"><div class="err"><%= errors.phone || '' %></div></div>
+          <div class="fld w-half <%= errors.password ? 'has-error' : '' %>"><label for="pw">Password</label><input id="pw" type="password" name="password" autocomplete="new-password"><div class="help" style="margin-top:6px">At least 10 characters, with letters and numbers.</div><div class="err"><%= errors.password || '' %></div></div>
+          <div class="fld w-half <%= errors.password2 ? 'has-error' : '' %>"><label for="pw2">Confirm password</label><input id="pw2" type="password" name="password2" autocomplete="new-password"><div class="err"><%= errors.password2 || '' %></div></div>
+          <div class="fld <%= errors.consent ? 'has-error' : '' %>">
+            <label class="choice confirm"><input type="checkbox" name="consent" value="yes"><span>I agree to <%= company.name %> processing my personal data for recruitment and BS 7858 security screening.</span></label>
+            <div class="err"><%= errors.consent || '' %></div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block mt">Create account &amp; start</button>
+      </form>
+      <p class="small muted mt">Already have an account? <a href="/login">Sign in</a></p>
+    </div>
+  </section>
+</div>
+<%- include('../partials/footer') %>

@@ -1,0 +1,99 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <%- include('../partials/flash') %>
+  <div class="page-head">
+    <div><p class="eyebrow mb-0">Screening control centre</p><h1>Dashboard</h1><p>BS 7858:2019 onboarding across all applicants.</p></div>
+    <a class="btn btn-primary" href="/admin/applications">View all applicants</a>
+  </div>
+
+  <div class="grid grid-4">
+    <div class="card stat accent"><a href="/admin/applications"><div class="n"><%= total %></div><div class="l">Total applicants</div></a></div>
+    <div class="card stat"><a href="/admin/applications?status=in_progress"><div class="n"><%= counts.in_progress %></div><div class="l">Still completing forms</div></a></div>
+    <div class="card stat warn"><a href="/admin/applications?status=submitted"><div class="n"><%= counts.submitted + counts.under_review + counts.info_requested %></div><div class="l">Awaiting screening / review</div></a></div>
+    <div class="card stat good"><a href="/admin/applications?status=cleared"><div class="n"><%= counts.cleared %></div><div class="l">Fully cleared</div></a></div>
+  </div>
+
+  <div class="split mt-2">
+    <div>
+      <div class="card">
+        <div class="card-head"><h3 style="flex:1">Active screenings</h3><span class="muted small">12-week BS 7858 completion window</span></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>Applicant</th><th>Status</th><th>Checks</th><th>Due</th></tr></thead>
+            <tbody>
+              <% if (!active.length) { %><tr><td colspan="4" class="muted">No active screenings.</td></tr><% } %>
+              <% active.forEach((a) => { %>
+                <tr>
+                  <td><a class="rowlink" href="/admin/applications/<%= a.id %>"><%= a.name %></a><div class="small muted"><%= a.ref %> · <%= a.position || '—' %></div></td>
+                  <td><%- include('../partials/status', { s: a.status }) %></td>
+                  <td class="nowrap"><%= a.checksDone %>/<%= a.checksTotal %></td>
+                  <td class="nowrap"><% if (a.deadline) { %><span class="badge <%= a.deadline.daysLeft < 0 ? 'tone-bad' : a.deadline.daysLeft < 14 ? 'tone-warn' : 'tone-neutral' %>"><%= a.deadline.daysLeft < 0 ? Math.abs(a.deadline.daysLeft) + 'd overdue' : a.deadline.daysLeft + ' days' %></span><% } %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <div class="card-head"><h3>Recently updated</h3></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>Applicant</th><th>Progress</th><th>Status</th><th>Updated</th></tr></thead>
+            <tbody>
+              <% latest.forEach((a) => { %>
+                <tr>
+                  <td><a class="rowlink" href="/admin/applications/<%= a.id %>"><%= a.name %></a><div class="small muted"><%= a.ref %></div></td>
+                  <td style="min-width:120px"><div class="small"><%= a.progress.done %>/<%= a.progress.total %> sections</div><div class="progress-line"><i style="width:<%= a.progress.pct %>%"></i></div></td>
+                  <td><%- include('../partials/status', { s: a.status }) %></td>
+                  <td class="nowrap small muted"><%= fmtDateTime(a.updated_at) %></td>
+                </tr>
+              <% }) %>
+              <% if (!latest.length) { %><tr><td colspan="4" class="muted">No applications yet. Applicants register at <b>/register</b>.</td></tr><% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-head"><h3>Official check services</h3></div>
+        <div class="card-body quick-links">
+          <a href="https://search-uk-sanctions-list.service.gov.uk/" target="_blank" rel="noopener">UK Sanctions List search<small>FCDO – search name &amp; previous names</small><span>↗</span></a>
+          <a href="https://services.sia.homeoffice.gov.uk/rolh" target="_blank" rel="noopener">SIA licence checker<small>Register of Licence Holders</small><span>↗</span></a>
+          <a href="https://www.gov.uk/view-right-to-work" target="_blank" rel="noopener">Right to work – share code<small>View a job applicant's right to work</small><span>↗</span></a>
+          <a href="https://www.gov.uk/dbs-update-service" target="_blank" rel="noopener">DBS Update Service<small>Check a registered certificate</small><span>↗</span></a>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <div class="card-head"><h3 style="flex:1">Deadlines &amp; alerts</h3></div>
+        <div class="card-body">
+          <% if (!overdue.length && !siaAlerts.length) { %><p class="muted small mb-0">Nothing needs attention.</p><% } %>
+          <ul class="log">
+            <% overdue.forEach((a) => { %>
+              <li><span class="badge <%= a.deadline.daysLeft < 0 ? 'tone-bad' : 'tone-warn' %> plain"><%= a.deadline.daysLeft < 0 ? 'Overdue' : a.deadline.daysLeft + 'd' %></span><span><a href="/admin/applications/<%= a.id %>"><%= a.name %></a> – screening due <%= fmtDate(a.deadline.due) %></span></li>
+            <% }) %>
+            <% siaAlerts.forEach((a) => { %>
+              <li><span class="badge <%= a.siaDays < 0 ? 'tone-bad' : 'tone-warn' %> plain">SIA</span><span><a href="/admin/applications/<%= a.id %>"><%= a.name %></a> – licence <%= a.siaDays < 0 ? 'expired' : 'expires' %> <%= fmtDate(a.siaExpiry) %></span></li>
+            <% }) %>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <div class="card-head"><h3>Latest activity</h3></div>
+        <div class="card-body">
+          <ul class="log">
+            <% recent.forEach((l) => { %>
+              <li><time><%= fmtDateTime(l.created_at) %></time><span><b><%= l.actor %></b> · <%= l.action.replace(/_/g, ' ') %> <a href="/admin/applications/<%= l.application_id %>"><%= l.ref %></a></span></li>
+            <% }) %>
+            <% if (!recent.length) { %><li class="muted">No activity yet.</li><% } %>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>

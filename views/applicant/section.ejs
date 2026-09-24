@@ -1,0 +1,61 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <div class="wizard">
+    <aside class="stepper card">
+      <div class="card-head"><div><p class="eyebrow mb-0">Onboarding</p><b><%= application.ref %></b></div></div>
+      <ol>
+        <% sections.forEach((s) => { const st = state[s.key]; %>
+          <li><a href="/apply/section/<%= s.key %>" class="<%= s.key === section.key ? 'on' : '' %>">
+            <span class="step-num <%= st || '' %>"><%- st === 'complete' ? '&#10003;' : s.num %></span><%= s.short %></a></li>
+        <% }) %>
+        <li><a href="/apply/review"><span class="step-num">&#9656;</span>Review &amp; submit</a></li>
+      </ol>
+    </aside>
+
+    <div>
+      <div class="mobile-steps">
+        <select aria-label="Go to section" data-nav-select>
+          <% sections.forEach((s) => { %><option value="/apply/section/<%= s.key %>" <%= s.key === section.key ? 'selected' : '' %>><%= s.num %>. <%= s.title %><%= state[s.key] === 'complete' ? ' ✓' : '' %></option><% }) %>
+          <option value="/apply/review">Review &amp; submit</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="card-pad" style="padding-bottom:8px">
+          <div class="section-title">
+            <div class="num"><%= section.num %></div>
+            <div>
+              <p class="eyebrow mb-0">Section <%= section.num %> of <%= sections.length %><%= section.confidential ? ' · Confidential' : '' %></p>
+              <h1 style="font-size:1.4rem;margin:2px 0 0"><%= section.title %></h1>
+              <% if (section.intro) { %><p><%= section.intro %></p><% } %>
+            </div>
+          </div>
+        </div>
+        <% if (!editable) { %><div class="card-pad" style="padding-top:0"><div class="alert alert-info mb-0">Your application has been submitted, so this section is read-only.</div></div><% } %>
+
+        <form class="card-pad" data-section-form data-section="<%= section.key %>" data-gap-days="<%= gapDays %>" data-period-years="<%= periodYears %>" novalidate style="padding-top:12px">
+          <div class="alert alert-error hidden" data-form-error></div>
+          <div class="form-grid" data-scope>
+            <% section.fields.forEach((f) => { %>
+              <%- include('../partials/field', { f, v: values[f.key], path: f.key, sectionKey: section.key, docs, disabled: !editable }) %>
+            <% }) %>
+          </div>
+        </form>
+
+        <div class="action-bar">
+          <span class="status" data-save-status><%= state[section.key] === 'complete' ? 'Section completed' : state[section.key] === 'draft' ? 'Draft saved' : 'Not saved yet' %></span>
+          <div class="btn-row">
+            <% if (idx > 0) { %><a class="btn" href="/apply/section/<%= sections[idx - 1].key %>">← Back</a><% } %>
+            <% if (editable) { %>
+              <button class="btn" type="button" data-save="draft">Save draft</button>
+              <button class="btn btn-primary" type="button" data-save="complete"><%= idx === sections.length - 1 ? 'Save & review' : 'Save & continue →' %></button>
+            <% } else if (idx < sections.length - 1) { %>
+              <a class="btn btn-primary" href="/apply/section/<%= sections[idx + 1].key %>">Next →</a>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>

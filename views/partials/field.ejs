@@ -1,0 +1,109 @@
+<%
+  // Renders one schema field. Locals: f, v, path, sectionKey, docs, disabled
+  const id = 'f-' + String(f.key ? path : '').replace(/[^a-zA-Z0-9_]/g, '-');
+  const w = f.width ? ' w-' + f.width : '';
+  const showIf = f.showIf ? JSON.stringify(f.showIf) : '';
+  const reqMark = f.required ? '<span class="req" aria-hidden="true">*</span>' : '';
+  const val = v === undefined || v === null ? '' : v;
+%>
+<% if (f.type === 'heading') { %>
+  <div class="section-heading"><h3><%= f.title %></h3><% if (f.help) { %><p><%= f.help %></p><% } %></div>
+<% } else if (f.type === 'info') { %>
+  <div class="info-block"><% if (f.title) { %><h3><%= f.title %></h3><% } %><%- f.html %></div>
+<% } else if (f.type === 'timeline') { %>
+  <div class="timeline" data-timeline>
+    <div class="timeline-head"><b>5-year history coverage</b><span data-tl-pct class="badge plain tone-neutral">–</span></div>
+    <div class="tl-bar" data-tl-bar></div>
+    <div class="tl-scale"><span data-tl-start></span><span>Today</span></div>
+    <ul class="tl-gaps" data-tl-gaps></ul>
+  </div>
+<% } else { %>
+<div class="fld<%= w %>" data-field data-type="<%= f.type %>" data-key="<%= f.key %>" data-path="<%= path %>"<% if (showIf) { %> data-show-if="<%= showIf %>"<% } %>>
+  <% if (f.type === 'yesno') { %>
+    <div class="q-row">
+      <div class="lbl" id="<%= id %>-l"><%= f.label %><%- reqMark %></div>
+      <div class="choices yesno" role="radiogroup" aria-labelledby="<%= id %>-l">
+        <% [['yes','Yes'],['no','No']].forEach(([ov, ol]) => { %>
+          <label class="choice"><input type="radio" name="<%= id %>" value="<%= ov %>" <%= val === ov ? 'checked' : '' %> <%= disabled ? 'disabled' : '' %>><span><%= ol %></span></label>
+        <% }) %>
+      </div>
+    </div>
+  <% } else if (f.type === 'radio') { %>
+    <div class="lbl" id="<%= id %>-l"><%= f.label %><%- reqMark %></div>
+    <% if (f.help) { %><div class="help"><%= f.help %></div><% } %>
+    <div class="choices <%= f.inline ? '' : 'stack' %>" role="radiogroup" aria-labelledby="<%= id %>-l">
+      <% f.options.forEach((o) => { %>
+        <label class="choice"><input type="radio" name="<%= id %>" value="<%= o.value %>" <%= val === o.value ? 'checked' : '' %> <%= disabled ? 'disabled' : '' %>><span><%= o.label %></span></label>
+      <% }) %>
+    </div>
+  <% } else if (f.type === 'checkboxes') { %>
+    <div class="lbl"><%= f.label %><%- reqMark %></div>
+    <% if (f.help) { %><div class="help"><%= f.help %></div><% } %>
+    <% const arr = Array.isArray(val) ? val : (f.default || []); %>
+    <div class="choices <%= f.columns === 2 ? 'cols-2' : 'stack' %>">
+      <% f.options.forEach((o) => { %>
+        <label class="choice"><input type="checkbox" value="<%= o.value %>" <%= arr.includes(o.value) ? 'checked' : '' %> <%= disabled || f.readonly ? 'disabled' : '' %>><span><%= o.label %></span></label>
+      <% }) %>
+    </div>
+  <% } else if (f.type === 'confirm') { %>
+    <label class="choice confirm"><input type="checkbox" id="<%= id %>" value="yes" <%= val === 'yes' ? 'checked' : '' %> <%= disabled ? 'disabled' : '' %>><span><%= f.label %><%- reqMark %></span></label>
+  <% } else if (f.type === 'signature') { %>
+    <div class="lbl"><%= f.label %><%- reqMark %></div>
+    <div data-sig data-value="<%= val && val.image ? JSON.stringify({ image: val.image, signedAt: val.signedAt }) : '' %>" <%= disabled ? 'data-disabled' : '' %>></div>
+  <% } else if (f.type === 'files') { %>
+    <div class="lbl"><%= f.label %><%- reqMark %></div>
+    <% if (f.help) { %><div class="help"><%= f.help %></div><% } %>
+    <% const fk = sectionKey + ':' + path; const list = docs[path] || []; %>
+    <div data-files data-field-key="<%= fk %>" data-accept="<%= f.accept || '' %>" <%= disabled ? 'data-disabled' : '' %>>
+      <% if (!disabled) { %>
+      <div class="drop">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>
+        <div class="txt"><b>Take a photo or upload a file</b>JPG, PNG, HEIC or PDF · up to 15 MB</div>
+        <label class="btn btn-sm">Choose file<input type="file" class="sr-only" accept="image/*,application/pdf" multiple></label>
+      </div>
+      <% } %>
+      <ul class="file-list">
+        <% list.forEach((d) => { %>
+          <li data-doc="<%= d.id %>">
+            <% if (d.mime.startsWith('image/') && !d.mime.includes('hei')) { %><img class="thumb" src="/apply/file/<%= d.id %>" alt=""><% } else { %><span class="thumb"><%= d.mime === 'application/pdf' ? 'PDF' : 'IMG' %></span><% } %>
+            <span class="name"><a href="/apply/file/<%= d.id %>" target="_blank" rel="noopener"><%= d.name %></a></span>
+            <span class="size"><%= (d.size / 1024 / 1024).toFixed(1) %> MB</span>
+            <% if (!disabled) { %><button type="button" data-del>Remove</button><% } %>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } else if (f.type === 'repeater') { %>
+    <div class="lbl"><%= f.label %><%- reqMark %></div>
+    <% if (f.help) { %><div class="help"><%= f.help %></div><% } %>
+    <div class="rep" data-rep data-min="<%= f.min || 0 %>" data-max="<%= f.max || 30 %>" data-labels="<%= f.fixedLabels ? JSON.stringify(f.fixedLabels) : '' %>" data-label="<%= f.label %>">
+      <div data-rows>
+        <% (Array.isArray(val) ? val : []).forEach((row, i) => { %>
+          <%- include('rep-row', { f, row, i, path, sectionKey, docs, disabled }) %>
+        <% }) %>
+      </div>
+      <% if (!disabled) { %>
+      <template data-tpl><%- include('rep-row', { f, row: { _id: '__ROW__' }, i: 0, path, sectionKey, docs: {}, disabled: false }) %></template>
+      <button type="button" class="btn rep-add" data-add>+ <%= f.addLabel || 'Add another' %></button>
+      <% } %>
+    </div>
+  <% } else { %>
+    <label for="<%= id %>"><%= f.label %><%- reqMark %></label>
+    <% if (f.help) { %><div class="help"><%= f.help %></div><% } %>
+    <% if (f.type === 'textarea') { %>
+      <textarea id="<%= id %>" rows="<%= f.rows || 3 %>" <%= disabled ? 'disabled' : '' %> placeholder="<%= f.placeholder || '' %>"><%= val %></textarea>
+    <% } else if (f.type === 'select') { %>
+      <select id="<%= id %>" <%= disabled ? 'disabled' : '' %>>
+        <option value="">Select…</option>
+        <% f.options.forEach((o) => { %><option value="<%= o.value %>" <%= val === o.value ? 'selected' : '' %>><%= o.label %></option><% }) %>
+      </select>
+    <% } else { %>
+      <% const t = { text: 'text', email: 'email', tel: 'tel', date: 'date', month: 'month', number: 'number' }[f.type] || 'text'; %>
+      <input id="<%= id %>" type="<%= t %>" value="<%= val %>" <%= disabled ? 'disabled' : '' %> placeholder="<%= f.placeholder || (f.type === 'month' ? 'YYYY-MM' : '') %>"
+        <% if (f.inputmode) { %>inputmode="<%= f.inputmode %>"<% } %> <% if (f.upper) { %>data-upper<% } %> <% if (f.min !== undefined) { %>min="<%= f.min %>"<% } %>
+        <% if (f.type === 'email') { %>autocomplete="email"<% } else if (f.type === 'tel') { %>autocomplete="tel"<% } %> <% if (f.type === 'date' && f.key === 'dob') { %>max="<%= new Date().toISOString().slice(0, 10) %>"<% } %>>
+    <% } %>
+  <% } %>
+  <div class="err" data-err></div>
+</div>
+<% } %>

@@ -1,0 +1,10 @@
+</main>
+<footer class="footer">
+  <div class="in">
+    <span>&copy; <%= new Date().getFullYear() %> <%= company.legalName %> · Head office: <%= company.address.join(', ') %> · North office: <%= company.northOffice.join(', ') %></span>
+    <span>Company No <%= company.regNo %><%= company.vatNo ? ' · VAT ' + company.vatNo : '' %> · <%= company.phone %> · <a href="https://<%= company.website %>" target="_blank" rel="noopener"><%= company.website %></a></span>
+  </div>
+</footer>
+<script src="/js/app.js?v=2"></script>
+</body>
+</html>

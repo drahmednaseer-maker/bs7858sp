@@ -1,0 +1,47 @@
+<%
+  // Read-only rendering of section data. Locals: fields, data, prefix, sectionKey, docs, fileBase, mask
+  const fmtV = (f, v) => {
+    if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) return null;
+    if (f.type === 'yesno') return v === 'yes' ? 'Yes' : 'No';
+    if (f.type === 'confirm') return v === 'yes' ? '✓ Confirmed' : null;
+    if (f.type === 'radio' || f.type === 'select') return optionLabel(f, v);
+    if (f.type === 'checkboxes') return v.map((x) => optionLabel(f, x)).join(', ');
+    if (f.type === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v.split('-').reverse().join('/');
+    if (f.type === 'month' && /^\d{4}-\d{2}$/.test(v)) { const [y, m] = v.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1] + ' ' + y; }
+    return String(v);
+  };
+%>
+<div class="kv">
+<% fields.forEach((f) => { %>
+  <% if (['info', 'timeline'].includes(f.type)) return; %>
+  <% if (f.type === 'heading') { %>
+    <div style="grid-column:1/-1;padding-top:16px;border-bottom:1px solid var(--line-2)"><b style="color:var(--ink)"><%= f.title %></b></div>
+    <% return; %>
+  <% } %>
+  <% if (!visible(f, data)) return; %>
+  <% const v = data[f.key]; %>
+  <% if (f.type === 'repeater') { %>
+    <div style="grid-column:1/-1;padding:10px 0 0;border:0"><b><%= f.label %></b><%= !(v && v.length) ? ' – none' : '' %></div>
+    <% (v || []).forEach((row, i) => { %>
+      <div style="grid-column:1/-1;border:1px solid var(--line);border-radius:8px;padding:4px 14px 8px;margin:8px 0;background:var(--surface-2)">
+        <div class="small" style="font-weight:700;padding:6px 0;color:var(--ink-2)"><%= (f.fixedLabels && f.fixedLabels[i]) || (f.label + ' ' + (i + 1)) %></div>
+        <%- include('summary-fields', { fields: f.fields, data: row, prefix: prefix + f.key + '.' + row._id + '.', sectionKey, docs, fileBase, mask }) %>
+      </div>
+    <% }) %>
+    <% return; %>
+  <% } %>
+  <div><%= f.label %></div>
+  <div>
+    <% if (f.type === 'signature') { %>
+      <% if (v && v.image) { %><img src="<%= v.image %>" alt="Signature" style="height:56px;background:#fff;border:1px solid var(--line);border-radius:4px;padding:2px 8px"><div class="small muted">Signed <%= fmtDateTime(v.signedAt) %><%= v.ip ? ' · IP ' + v.ip : '' %></div><% } else { %><span class="flag">Not signed</span><% } %>
+    <% } else if (f.type === 'files') { %>
+      <% const list = docs.filter((d) => d.field_key === sectionKey + ':' + prefix + f.key); %>
+      <% if (!list.length) { %><span class="muted">No file</span><% } %>
+      <% list.forEach((d) => { %><div><a href="<%= fileBase %><%= d.id %>" target="_blank" rel="noopener"><%= d.original_name %></a> <span class="small muted">(<%= (d.size / 1048576).toFixed(1) %> MB)</span></div><% }) %>
+    <% } else { %>
+      <% let out = fmtV(f, v); if (out && mask && f.key === 'account_number') out = '••••' + out.slice(-4); %>
+      <% if (out === null) { %><span class="muted">—</span><% } else { %><span style="white-space:pre-wrap"><%= out %></span><% } %>
+    <% } %>
+  </div>
+<% }) %>
+</div>

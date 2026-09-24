@@ -1,0 +1,63 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <%- include('../partials/flash') %>
+  <div class="hero">
+    <div class="ring" style="--p: <%= progress.pct %>"><div><b><%= progress.done %>/<%= progress.total %></b><small>sections</small></div></div>
+    <div class="grow">
+      <p class="eyebrow" style="color:#8fa0b4">Reference <%= application.ref %></p>
+      <h1>Hello <%= user.first_name %>, welcome to your onboarding</h1>
+      <p>
+        <% if (application.status === 'in_progress') { %>
+          Complete all nine sections below, then review and submit. Your answers are saved each time you press <b>Save</b>.
+        <% } else if (application.status === 'info_requested') { %>
+          Our screening team has asked for more information. Please update your application and resubmit.
+        <% } else { %>
+          Thank you – your application was submitted on <%= fmtDate(application.submitted_at) %>. Our team is carrying out your BS 7858 screening.
+        <% } %>
+      </p>
+    </div>
+    <div style="position:relative;z-index:1"><%- include('../partials/status', { s: application.status }) %></div>
+  </div>
+
+  <% if (adminNote && application.status === 'info_requested') { %>
+    <div class="alert alert-warn mt"><strong>Message from the screening team (<%= fmtDate(adminNote.at) %>)</strong><%= adminNote.message %></div>
+  <% } %>
+
+  <div class="page-head mt-2">
+    <div><h2 class="mb-0">Your onboarding steps</h2><p>Complete them in any order – each section can be saved and finished later.</p></div>
+    <% if (editable) { %>
+      <a class="btn <%= allComplete ? 'btn-primary' : '' %>" href="/apply/review"><%= allComplete ? 'Review & submit →' : 'Review progress' %></a>
+    <% } else { %>
+      <a class="btn" href="/apply/review">View my submission</a>
+    <% } %>
+  </div>
+
+  <div class="steps-list">
+    <% sections.forEach((s) => { const st = state[s.key]; %>
+      <a class="step-card" href="/apply/section/<%= s.key %>">
+        <span class="step-num <%= st || '' %>"><%- st === 'complete' ? '&#10003;' : s.num %></span>
+        <span class="grow">
+          <b><%= s.title %></b>
+          <small><%= st === 'complete' ? 'Completed' : st === 'draft' ? 'In progress – not finished' : 'Not started' %><%= s.confidential ? ' · Confidential' : '' %></small>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa6b4" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+    <% }) %>
+  </div>
+
+  <div class="grid grid-3 mt-2">
+    <div class="card card-pad">
+      <h3>How screening works</h3>
+      <p class="small muted mb-0">BS 7858 requires us to verify your identity, right to work, SIA licence and a continuous 5-year history, and to take up references. Full screening is completed within 12 weeks.</p>
+    </div>
+    <div class="card card-pad">
+      <h3>Your data is protected</h3>
+      <p class="small muted mb-0">Everything you enter and upload is encrypted and only visible to our authorised screening team. Diversity and health information is kept confidential.</p>
+    </div>
+    <div class="card card-pad">
+      <h3>Need help?</h3>
+      <p class="small muted mb-0">Call us on <b><%= company.phone %></b> or email <a href="mailto:<%= company.email %>"><%= company.email %></a> quoting reference <b><%= application.ref %></b>.</p>
+    </div>
+  </div>
+</div>
+<%- include('../partials/footer') %>

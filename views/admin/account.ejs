@@ -1,0 +1,22 @@
+<%- include('../partials/header') %>
+<div class="wrap narrow" style="max-width:640px">
+  <%- include('../partials/flash') %>
+  <h1>My account</h1>
+  <div class="card card-pad">
+    <div class="kv"><div>Name</div><div><%= user.first_name %> <%= user.last_name %></div><div>Email</div><div><%= user.email %></div><div>Role</div><div><%= user.role === 'superadmin' ? 'Super admin' : 'Screening officer' %></div></div>
+  </div>
+  <div class="card card-pad mt">
+    <h2>Change password</h2>
+    <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <form method="post" action="/admin/account">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="form-grid">
+        <div class="fld"><label>Current password</label><input type="password" name="current" autocomplete="current-password"></div>
+        <div class="fld w-half"><label>New password</label><input type="password" name="password" autocomplete="new-password"></div>
+        <div class="fld w-half"><label>Confirm new password</label><input type="password" name="password2" autocomplete="new-password"></div>
+      </div>
+      <button class="btn btn-primary mt">Update password</button>
+    </form>
+  </div>
+</div>
+<%- include('../partials/footer') %>

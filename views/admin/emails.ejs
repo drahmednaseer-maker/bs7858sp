@@ -1,0 +1,21 @@
+<%- include('../partials/header') %>
+<div class="wrap">
+  <div class="page-head"><div><h1>Email outbox</h1><p>Every email the system has generated.<%= smtpConfigured ? '' : ' SMTP is not configured, so emails are stored here as "queued" – open one to copy it or send it from your own mailbox.' %></p></div></div>
+  <% if (!smtpConfigured) { %><div class="alert alert-warn"><strong>Email sending is not configured</strong>Set SMTP_HOST, SMTP_USER, SMTP_PASS and SMTP_FROM in the environment to send automatically (e.g. Microsoft 365, Google Workspace, SendGrid, Mailgun).</div><% } %>
+  <div class="card"><div class="table-wrap"><table class="tbl">
+    <thead><tr><th>Date</th><th>To</th><th>Subject</th><th>Applicant</th><th>Status</th></tr></thead>
+    <tbody>
+      <% emails.forEach((e) => { %>
+        <tr>
+          <td class="nowrap small"><%= fmtDateTime(e.created_at) %></td>
+          <td><%= e.to_addr %></td>
+          <td><a class="rowlink" href="/admin/emails/<%= e.id %>"><%= e.subject %></a></td>
+          <td><% if (e.app_id) { %><a href="/admin/applications/<%= e.app_id %>"><%= e.ref %></a><% } %></td>
+          <td><span class="badge <%= e.status === 'sent' ? 'tone-good' : e.status === 'failed' ? 'tone-bad' : 'tone-warn' %>" title="<%= e.error || '' %>"><%= e.status %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!emails.length) { %><tr><td colspan="5" class="muted">No emails yet.</td></tr><% } %>
+    </tbody>
+  </table></div></div>
+</div>
+<%- include('../partials/footer') %>

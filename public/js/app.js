@@ -1,0 +1,354 @@
+/* Security Projects – onboarding portal client script (no dependencies). */
+(function () {
+  'use strict';
+  const $ = (s, el) => (el || document).querySelector(s);
+  const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+  const CSRF = ($('meta[name="csrf-token"]') || {}).content;
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const fmtMonth = (ym) => { if (!ym) return ''; const [y, m] = ym.split('-'); return MONTHS[Number(m) - 1] + ' ' + y; };
+  const hexId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, '0')).join('');
+
+  // ---------- Nav ----------
+  const menuBtn = $('[data-menu]');
+  if (menuBtn) menuBtn.addEventListener('click', () => $('#nav').classList.toggle('open'));
+  const navSel = $('[data-nav-select]');
+  if (navSel) navSel.addEventListener('change', () => { location.href = navSel.value; });
+  document.addEventListener('submit', (e) => {
+    const msg = e.target.getAttribute('data-confirm');
+    if (msg && !confirm(msg)) e.preventDefault();
+  });
+  $$('[data-copy]').forEach((b) => b.addEventListener('click', () => {
+    navigator.clipboard.writeText(b.getAttribute('data-copy')).then(() => { const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = t; }, 1500); });
+  }));
+
+  // ---------- Signature pad ----------
+  function initSig(host) {
+    if (host._init) return;
+    host._init = true;
+    const disabled = host.hasAttribute('data-disabled');
+    const hiddenName = host.getAttribute('data-input');
+    let hidden = null;
+    if (hiddenName) { hidden = document.createElement('input'); hidden.type = 'hidden'; hidden.name = hiddenName; host.after(hidden); }
+    let value = null;
+    try { value = host.getAttribute('data-value') ? JSON.parse(host.getAttribute('data-value')) : null; } catch (e) { value = null; }
+    host._sig = value;
+
+    const set = (v) => { host._sig = v; if (hidden) hidden.value = v ? v.image : ''; host.dispatchEvent(new Event('change', { bubbles: true })); };
+
+    function showDone() {
+      host.innerHTML = '';
+      const box = document.createElement('div');
+      box.className = 'sig-done';
+      const when = host._sig.signedAt ? new Date(host._sig.signedAt).toLocaleString('en-GB') : 'just now (saved when you press Save)';
+      box.innerHTML = '<img alt="Your signature"><div class="meta"><b>Signed electronically</b><br>' + when + '</div>';
+      box.querySelector('img').src = host._sig.image;
+      if (!disabled) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = 'Sign again';
+        b.addEventListener('click', () => { set(null); showPad(); });
+        box.appendChild(b);
+      }
+      host.appendChild(box);
+    }
+
+    function showPad() {
+      host.innerHTML = '<div class="sig-box"><canvas></canvas><span class="sig-hint">Sign with your finger, stylus or mouse</span><span class="sig-x">✕</span><span class="sig-line"></span>' +
+        '<div class="sig-tools"><span>By signing you agree this is your legal electronic signature.</span><span class="btn-row"><button type="button" class="btn btn-sm" data-clear>Clear</button><button type="button" class="btn btn-sm btn-dark" data-accept>Use signature</button></span></div></div>';
+      const canvas = $('canvas', host);
+      const ctx = canvas.getContext('2d');
+      const hint = $('.sig-hint', host);
+      let drawing = false; let has = false; let last = null;
+      function size() {
+        const r = canvas.getBoundingClientRect();
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0b1f4b';
+      }
+      size();
+      const pos = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+      canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); canvas.setPointerCapture(e.pointerId); drawing = true; last = pos(e); hint.style.display = 'none'; ctx.beginPath(); ctx.arc(last.x, last.y, 1.1, 0, Math.PI * 2); ctx.fillStyle = '#0b1f4b'; ctx.fill(); has = true; });
+      canvas.addEventListener('pointermove', (e) => {
+        if (!drawing) return;
+        const p = pos(e);
+        ctx.beginPath(); ctx.moveTo(last.x, last.y);
+        const mx = (last.x + p.x) / 2; const my = (last.y + p.y) / 2;
+        ctx.quadraticCurveTo(last.x, last.y, mx, my); ctx.lineTo(p.x, p.y); ctx.stroke();
+        last = p; has = true;
+      });
+      const end = () => { drawing = false; };
+      canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end); canvas.addEventListener('pointerleave', end);
+      $('[data-clear]', host).addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width, canvas.height); has = false; hint.style.display = ''; });
+      $('[data-accept]', host).addEventListener('click', () => {
+        if (!has) { alert('Please draw your signature first.'); return; }
+        // Crop to content on a white background for a clean PNG.
+        const out = trim(canvas);
+        set({ image: out });
+        showDone();
+      });
+    }
+
+    function trim(c) {
+      const w = c.width; const h = c.height;
+      const data = c.getContext('2d').getImageData(0, 0, w, h).data;
+      let x0 = w, y0 = h, x1 = 0, y1 = 0;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      const pad = 12;
+      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(w, x1 + pad); y1 = Math.min(h, y1 + pad);
+      const scale = Math.min(1, 600 / (x1 - x0));
+      const o = document.createElement('canvas');
+      o.width = Math.max(1, Math.round((x1 - x0) * scale)); o.height = Math.max(1, Math.round((y1 - y0) * scale));
+      const octx = o.getContext('2d');
+      octx.fillStyle = '#fff'; octx.fillRect(0, 0, o.width, o.height);
+      octx.drawImage(c, x0, y0, x1 - x0, y1 - y0, 0, 0, o.width, o.height);
+      return o.toDataURL('image/png');
+    }
+
+    if (value && value.image) { if (hidden) hidden.value = value.image; showDone(); } else if (!disabled) showPad();
+    else host.innerHTML = '<span class="muted">Not signed</span>';
+  }
+  $$('[data-sig]').forEach(initSig);
+
+  // ---------- File uploads ----------
+  async function shrink(file) {
+    if (!/^image\/(jpeg|png)$/.test(file.type) || file.size < 3 * 1024 * 1024) return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const s = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.86));
+      return blob ? new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
+    } catch (e) { return file; }
+  }
+
+  function fileItem(doc, disabled) {
+    const li = document.createElement('li');
+    li.dataset.doc = doc.id;
+    const isImg = /^image\/(jpeg|png|webp|gif)$/.test(doc.mime);
+    li.innerHTML = (isImg ? '<img class="thumb" alt="">' : '<span class="thumb">' + (doc.mime === 'application/pdf' ? 'PDF' : 'IMG') + '</span>') +
+      '<span class="name"><a target="_blank" rel="noopener"></a></span><span class="size">' + (doc.size / 1048576).toFixed(1) + ' MB</span>' + (disabled ? '' : '<button type="button" data-del>Remove</button>');
+    if (isImg) li.querySelector('img').src = '/apply/file/' + doc.id;
+    const a = li.querySelector('a'); a.href = '/apply/file/' + doc.id; a.textContent = doc.name;
+    return li;
+  }
+
+  function uploadOne(host, file) {
+    return new Promise((resolve) => {
+      const list = $('.file-list', host);
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="thumb">…</span><span class="name"></span><span class="size" style="min-width:90px"><span class="progress-line"><i></i></span></span>';
+      li.querySelector('.name').textContent = file.name;
+      list.appendChild(li);
+      const fd = new FormData();
+      fd.append('field_key', host.dataset.fieldKey);
+      fd.append('file', file);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/apply/upload');
+      xhr.setRequestHeader('X-CSRF-Token', CSRF);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable) li.querySelector('i').style.width = Math.round((e.loaded / e.total) * 100) + '%'; };
+      xhr.onload = () => {
+        let res = {};
+        try { res = JSON.parse(xhr.responseText); } catch (e) { res = { error: 'Upload failed.' }; }
+        if (xhr.status === 200) { li.replaceWith(fileItem(res, false)); clearErr(host.closest('[data-field]')); }
+        else { li.remove(); alert(res.error || 'Upload failed.'); }
+        resolve();
+      };
+      xhr.onerror = () => { li.remove(); alert('Upload failed – please check your connection.'); resolve(); };
+      xhr.send(fd);
+    });
+  }
+
+  function initFiles(host) {
+    if (host._init || host.hasAttribute('data-disabled')) return;
+    host._init = true;
+    const input = $('input[type=file]', host);
+    const drop = $('.drop', host);
+    const handle = async (fileList) => { for (const f of Array.from(fileList)) await uploadOne(host, await shrink(f)); };
+    input.addEventListener('change', () => { handle(input.files); input.value = ''; });
+    ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', (e) => handle(e.dataTransfer.files));
+    host.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-del]');
+      if (!b) return;
+      const li = b.closest('li');
+      if (!confirm('Remove this file?')) return;
+      const r = await fetch('/apply/upload/' + li.dataset.doc + '/delete', { method: 'POST', headers: { 'X-CSRF-Token': CSRF, Accept: 'application/json' } });
+      if (r.ok) li.remove(); else alert('Could not remove the file.');
+    });
+  }
+  $$('[data-files]').forEach(initFiles);
+
+  // ---------- Section form ----------
+  const form = $('[data-section-form]');
+  if (!form) return;
+
+  const directFields = (scope) => $$('[data-field]', scope).filter((el) => el.parentElement.closest('[data-scope]') === scope);
+
+  function readField(el) {
+    const t = el.dataset.type;
+    switch (t) {
+      case 'yesno': case 'radio': { const c = $('input[type=radio]:checked', el); return c ? c.value : ''; }
+      case 'checkboxes': return $$('input[type=checkbox]:checked', el).map((c) => c.value);
+      case 'confirm': return $('input[type=checkbox]', el).checked ? 'yes' : '';
+      case 'signature': { const s = $('[data-sig]', el)._sig; return s && s.image ? { image: s.image } : null; }
+      case 'files': return undefined;
+      case 'repeater': return $$(':scope > .rep > [data-rows] > [data-row]', el).map((row) => Object.assign({ _id: row.dataset.id }, collect($('[data-scope]', row))));
+      default: { const i = $('input, textarea, select', el); return i ? i.value : ''; }
+    }
+  }
+
+  function collect(scope) {
+    const out = {};
+    directFields(scope).forEach((el) => { const v = readField(el); if (v !== undefined) out[el.dataset.key] = v; });
+    return out;
+  }
+
+  function evalShow(rule, vals) {
+    const v = vals[rule.key];
+    if (rule.eq !== undefined) return v === rule.eq;
+    if (rule.ne !== undefined) return v !== rule.ne;
+    if (rule.in) return rule.in.indexOf(v) !== -1;
+    return true;
+  }
+
+  function applyVisibility() {
+    const scopes = [$('[data-scope]', form)].concat($$('[data-row] > [data-scope]', form));
+    scopes.forEach((scope) => {
+      const vals = collect(scope);
+      directFields(scope).forEach((el) => {
+        const r = el.dataset.showIf;
+        if (r) el.classList.toggle('hidden', !evalShow(JSON.parse(r), vals));
+      });
+    });
+  }
+
+  // Repeaters
+  function renumber(rep) {
+    let labels = [];
+    try { labels = rep.dataset.labels ? JSON.parse(rep.dataset.labels) : []; } catch (e) { labels = []; }
+    const rows = $$(':scope > [data-rows] > [data-row]', rep);
+    rows.forEach((row, i) => { const t = $('[data-row-title]', row); if (t) t.textContent = labels[i] || (rep.dataset.label + ' ' + (i + 1)); });
+    const min = Number(rep.dataset.min || 0); const max = Number(rep.dataset.max || 30);
+    rows.forEach((row) => { const rb = $(':scope > .rep-row-head [data-remove]', row); if (rb) rb.style.visibility = rows.length <= min ? 'hidden' : ''; });
+    const add = $(':scope > [data-add]', rep); if (add) add.style.display = rows.length >= max ? 'none' : '';
+  }
+  $$('[data-rep]', form).forEach((rep) => {
+    renumber(rep);
+    const add = $(':scope > [data-add]', rep);
+    if (add) add.addEventListener('click', () => {
+      const html = $(':scope > template', rep).innerHTML.split('__ROW__').join(hexId());
+      const wrapDiv = document.createElement('div'); wrapDiv.innerHTML = html.trim();
+      const row = wrapDiv.firstElementChild;
+      $(':scope > [data-rows]', rep).appendChild(row);
+      $$('[data-sig]', row).forEach(initSig); $$('[data-files]', row).forEach(initFiles);
+      renumber(rep); applyVisibility(); dirty = true; updateTimeline();
+      const first = $('input, select, textarea', row); if (first) first.focus();
+    });
+    rep.addEventListener('click', (e) => {
+      const rb = e.target.closest('[data-remove]');
+      if (!rb || rb.closest('[data-rep]') !== rep) return;
+      if (!confirm('Remove this entry?')) return;
+      rb.closest('[data-row]').remove(); renumber(rep); dirty = true; updateTimeline();
+    });
+  });
+
+  // 5-year timeline
+  const tl = $('[data-timeline]', form);
+  const years = Number(form.dataset.periodYears || 5);
+  function updateTimeline() {
+    if (!tl) return;
+    const histEl = $$('[data-field][data-key="history"]', form)[0];
+    const hist = histEl ? readField(histEl) : [];
+    const now = new Date(); const nowIdx = now.getFullYear() * 12 + now.getMonth(); const start = nowIdx - years * 12;
+    const toIdx = (ym) => { const p = ym.split('-'); return Number(p[0]) * 12 + Number(p[1]) - 1; };
+    const covered = new Set();
+    hist.forEach((h) => {
+      if (!/^\d{4}-\d{2}$/.test(h.from || '')) return;
+      const a = toIdx(h.from); const b = h.current === 'yes' ? nowIdx : (/^\d{4}-\d{2}$/.test(h.to || '') ? toIdx(h.to) : null);
+      if (b === null || b < a) return;
+      for (let i = a; i <= Math.min(b, nowIdx); i++) covered.add(i);
+    });
+    const bar = $('[data-tl-bar]', tl); bar.innerHTML = '';
+    const gaps = []; let run = null; let ok = 0;
+    for (let i = start; i < nowIdx; i++) {
+      const c = covered.has(i);
+      if (c) ok++;
+      const seg = document.createElement('i'); seg.className = c ? 'ok' : 'gap'; seg.style.width = (100 / (nowIdx - start)) + '%';
+      seg.title = fmtMonth(Math.floor(i / 12) + '-' + String((i % 12) + 1).padStart(2, '0'));
+      bar.appendChild(seg);
+      if (!c) { if (!run) run = [i, i]; else run[1] = i; } else if (run) { gaps.push(run); run = null; }
+    }
+    if (run) gaps.push(run);
+    const ym = (i) => Math.floor(i / 12) + '-' + String((i % 12) + 1).padStart(2, '0');
+    $('[data-tl-start]', tl).textContent = fmtMonth(ym(start));
+    const pct = Math.round((ok / (nowIdx - start)) * 100);
+    const badge = $('[data-tl-pct]', tl);
+    badge.textContent = pct + '% covered';
+    badge.className = 'badge plain ' + (pct === 100 ? 'tone-good' : pct > 60 ? 'tone-warn' : 'tone-bad');
+    $('[data-tl-gaps]', tl).innerHTML = gaps.length
+      ? gaps.map((g) => '<li>⚠ Gap: ' + fmtMonth(ym(g[0])) + (g[1] > g[0] ? ' – ' + fmtMonth(ym(g[1])) : '') + ' (' + (g[1] - g[0] + 1) + ' month' + (g[1] > g[0] ? 's' : '') + ')</li>').join('')
+      : '<li style="color:var(--good)">✓ Your ' + years + '-year history is continuous.</li>';
+  }
+
+  let dirty = false;
+  form.addEventListener('input', (e) => { dirty = true; applyVisibility(); updateTimeline(); clearErr(e.target.closest('[data-field]')); });
+  form.addEventListener('change', (e) => {
+    dirty = true; applyVisibility(); updateTimeline(); clearErr(e.target.closest('[data-field]'));
+    if (e.target.matches('input[data-upper]')) e.target.value = e.target.value.toUpperCase();
+  });
+  form.addEventListener('focusout', (e) => { if (e.target.matches('input[data-upper]')) e.target.value = e.target.value.toUpperCase(); });
+  window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+  applyVisibility(); updateTimeline();
+
+  function clearErr(el) { if (!el) return; el.classList.remove('has-error'); const e = $(':scope > [data-err]', el); if (e) e.textContent = ''; }
+
+  function showErrors(errors) {
+    $$('[data-field].has-error', form).forEach(clearErr);
+    const box = $('[data-form-error]', form);
+    let first = null; let unmatched = [];
+    Object.keys(errors).forEach((path) => {
+      const el = $$('[data-field]', form).find((f) => f.dataset.path === path);
+      if (el) {
+        el.classList.add('has-error');
+        $(':scope > [data-err]', el).textContent = errors[path];
+        // open any hidden parents
+        if (!first) first = el;
+      } else unmatched.push(errors[path]);
+    });
+    const n = Object.keys(errors).length;
+    box.innerHTML = '<strong>Please correct ' + n + ' item' + (n > 1 ? 's' : '') + ' before continuing.</strong>' + unmatched.map((m) => '<div>' + m.replace(/</g, '&lt;') + '</div>').join('');
+    box.classList.remove('hidden');
+    (first || box).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  const status = $('[data-save-status]');
+  $$('[data-save]').forEach((btn) => btn.addEventListener('click', async () => {
+    const action = btn.dataset.save;
+    const data = collect($('[data-scope]', form));
+    $$('[data-save]').forEach((b) => { b.disabled = true; });
+    status.textContent = 'Saving…';
+    try {
+      const r = await fetch('/apply/section/' + form.dataset.section, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': CSRF },
+        body: JSON.stringify({ action, data }),
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || 'Save failed');
+      dirty = false;
+      if (res.ok && res.next) { location.href = res.next; return; }
+      if (!res.ok) { showErrors(res.errors); status.textContent = 'Draft saved – some items need attention'; }
+      else { $('[data-form-error]', form).classList.add('hidden'); status.textContent = 'Draft saved at ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+    } catch (e) {
+      status.textContent = 'Not saved';
+      alert(e.message || 'Could not save – please check your connection and try again.');
+    } finally {
+      $$('[data-save]').forEach((b) => { b.disabled = false; });
+    }
+  }));
+})();
+
+/* Admin signature pads outside section forms are initialised above via [data-sig]. */
