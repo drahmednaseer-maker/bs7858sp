@@ -171,10 +171,11 @@
     <div class="split">
       <div>
         <% checks.forEach((c) => { %>
-          <details class="check-card" id="check-<%= c.type %>" <%= c.status === 'pending' ? '' : '' %>>
+          <details class="check-card" id="check-<%= c.type %>" data-check="<%= c.type %>" <%= openCheck === c.type ? 'open' : '' %>>
             <summary>
               <span class="badge tone-<%= cTone[c.status] %>" style="min-width:76px;justify-content:center"><%= cLabel[c.status] %></span>
               <b><%= c.label %></b>
+              <% if (c.evidence.length) { %><span class="badge plain tone-info" title="Evidence files attached"><%= c.evidence.length %> evidence</span><% } %>
               <% if (c.checker) { %><span class="small muted"><%= c.checker %> · <%= fmtDateTime(c.checked_at) %></span><% } %>
             </summary>
             <div class="body">
@@ -187,15 +188,43 @@
               <% if (c.docs) { const rel = docs.filter((x) => c.docs.some((k) => x.field_key === 'documents:' + k)); if (rel.length) { %>
                 <p class="small">Applicant documents: <% rel.forEach((x, i) => { %><a href="<%= fileBase %><%= x.id %>" target="_blank"><%= x.original_name %></a><%= i < rel.length - 1 ? ', ' : '' %><% }) %></p>
               <% } } %>
-              <% const ev = docs.filter((x) => x.field_key === 'admin:check_' + c.type); if (ev.length) { %>
-                <p class="small">Evidence on file: <% ev.forEach((x, i) => { %><a href="<%= fileBase %><%= x.id %>" target="_blank"><%= x.original_name %></a><%= i < ev.length - 1 ? ', ' : '' %><% }) %></p>
+              <% if (c.evidence.length) { %>
+                <div class="ev-onfile">
+                  <div class="lbl">Evidence on file</div>
+                  <ul class="ev-list">
+                    <% c.evidence.forEach((x) => { %>
+                      <li>
+                        <a class="ev-thumb" href="<%= fileBase %><%= x.id %>" target="_blank" rel="noopener"><% if (/image\/(jpeg|png|webp|gif)/.test(x.mime)) { %><img src="<%= fileBase %><%= x.id %>" alt="" loading="lazy"><% } else { %><span>PDF</span><% } %></a>
+                        <div class="ev-meta">
+                          <a href="<%= fileBase %><%= x.id %>" target="_blank" rel="noopener"><b><%= x.original_name %></b></a>
+                          <span class="small muted">Attached by <%= x.uploader || 'Unknown' %> · <%= fmtDateTime(x.created_at) %></span>
+                        </div>
+                        <form method="post" action="<%= base %>/evidence/<%= x.id %>/delete" data-confirm="Remove <%= x.original_name %>? The removal is recorded in the audit log.">
+                          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-sm btn-ghost ev-del">Remove</button>
+                        </form>
+                      </li>
+                    <% }) %>
+                  </ul>
+                </div>
               <% } %>
-              <form method="post" action="<%= base %>/checks/<%= c.type %>?_csrf=<%= csrf %>" enctype="multipart/form-data" class="form-grid">
+              <form method="post" action="<%= base %>/checks/<%= c.type %>?_csrf=<%= csrf %>" enctype="multipart/form-data" class="form-grid" data-check-form data-ev-prefix="<%= c.short %>_Check_<%= (((a.forenames || app.name || '').normalize('NFKD').replace(/[^A-Za-z0-9]/g, '').charAt(0).toUpperCase()) + (a.surname || '').normalize('NFKD').replace(/[^A-Za-z0-9]/g, '')) || 'Applicant' %>">
                 <div class="fld w-third"><label>Result</label><select name="status"><% Object.entries(cLabel).forEach(([k, l]) => { %><option value="<%= k %>" <%= c.status === k ? 'selected' : '' %>><%= l %></option><% }) %></select></div>
-                <div class="fld" style="flex:2 1 260px"><label>Reference / certificate / result ID</label><input type="text" name="reference" value="<%= c.reference || '' %>" placeholder="<%= c.type === 'sanctions' ? 'e.g. No match – searched 25/09/2026' : c.type === 'rtw' ? 'e.g. RTW check ref / expiry of permission' : '' %>"></div>
+                <div class="fld" style="flex:2 1 260px"><label>Reference / certificate / result ID</label><input type="text" name="reference" value="<%= c.reference || '' %>" placeholder="<%= c.type === 'sanctions' ? 'e.g. No match – searched ' + new Date().toLocaleDateString('en-GB') : c.type === 'rtw' ? 'e.g. RTW check ref / expiry of permission' : '' %>"></div>
                 <div class="fld"><label>Notes</label><textarea name="notes" rows="2"><%= c.notes || '' %></textarea></div>
-                <div class="fld"><label>Attach evidence (screenshot / PDF of result)</label><input type="file" name="evidence" accept="image/*,application/pdf"></div>
-                <div class="fld"><button class="btn btn-primary">Save check</button></div>
+                <div class="fld">
+                  <div class="lbl">Add evidence</div>
+                  <div class="paste-zone" tabindex="0" role="button" data-paste-zone aria-label="Paste or drop evidence for <%= c.label %>">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                    <div><b>Click here, then press <kbd>Ctrl</kbd>+<kbd>V</kbd> to paste a screenshot</b>
+                      <span>Take it with <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> or <kbd>PrtScn</kbd> (Mac: <kbd>⌘</kbd>+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>4</kbd>). You can also drag an image or PDF here, or <label class="linklike">browse<input type="file" class="sr-only" accept="image/*,application/pdf" multiple data-paste-browse></label>.</span></div>
+                  </div>
+                  <div class="paste-staged hidden" data-staged>
+                    <div class="small muted" data-staged-note></div>
+                    <ul class="ev-list" data-staged-list></ul>
+                  </div>
+                  <noscript><input type="file" name="evidence" accept="image/*,application/pdf" multiple></noscript>
+                </div>
+                <div class="fld"><button class="btn btn-primary" data-check-save>Save check</button></div>
               </form>
             </div>
           </details>

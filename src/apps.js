@@ -17,16 +17,16 @@ const STATUSES = {
 };
 
 const CHECK_TYPES = [
-  { type: 'identity', label: 'Identity verified', guidance: 'Original photo ID (passport / driving licence) seen and compared with the applicant in person or via certified digital identity service. Copy retained.', docs: ['passport_files', 'driving_licence_files', 'photo_files'] },
-  { type: 'address', label: 'Proof of address', guidance: 'Two proofs of address checked – bank statement / utility bill within 3 months, council tax / driving licence within current year.', docs: ['poa_1_files', 'poa_2_files'] },
-  { type: 'rtw', label: 'Right to work', guidance: 'Check the share code using the Home Office online service, or check original documents (List A/B). Save the result PDF as evidence.', link: 'rtw', docs: ['rtw_files'] },
-  { type: 'sia', label: 'SIA licence', guidance: 'Search the SIA Register of Licence Holders by the 16-digit licence number. Confirm status is Active, sector and expiry.', link: 'sia', docs: ['sia_files'] },
-  { type: 'sanctions', label: 'UK sanctions list', guidance: 'Search the applicant\'s full name (and any previous names) on the FCDO UK Sanctions List. Record "No match" and the date searched.', link: 'sanctions' },
-  { type: 'dbs', label: 'Criminal record (Basic DBS)', guidance: 'Basic DBS certificate obtained or checked on the DBS Update Service. Record certificate number and issue date.', link: 'dbs', docs: ['dbs_files'] },
-  { type: 'credit', label: 'Consumer information / credit check', guidance: 'Financial / consumer information search through a credit reference agency covering the 5-year address history. Record any CCJs, bankruptcy or IVAs.' },
-  { type: 'history', label: '5-year history verified', guidance: 'Every period of the 5-year history verified in writing (employer / education / DWP / accountant) or by statutory declaration where unavoidable.' },
-  { type: 'references', label: 'References', guidance: 'Written references received and reviewed.' },
-  { type: 'interview', label: 'Pre-employment interview', guidance: 'Face-to-face (or live video) interview conducted to clarify the application and any gaps.' },
+  { type: 'identity', short: 'ID', label: 'Identity verified', guidance: 'Original photo ID (passport / driving licence) seen and compared with the applicant in person or via certified digital identity service. Copy retained.', docs: ['passport_files', 'driving_licence_files', 'photo_files'] },
+  { type: 'address', short: 'Address', label: 'Proof of address', guidance: 'Two proofs of address checked – bank statement / utility bill within 3 months, council tax / driving licence within current year.', docs: ['poa_1_files', 'poa_2_files'] },
+  { type: 'rtw', short: 'RTW', label: 'Right to work', guidance: 'Check the share code using the Home Office online service, or check original documents (List A/B). Save the result PDF as evidence.', link: 'rtw', docs: ['rtw_files'] },
+  { type: 'sia', short: 'SIA', label: 'SIA licence', guidance: 'Search the SIA Register of Licence Holders by the 16-digit licence number. Confirm status is Active, sector and expiry.', link: 'sia', docs: ['sia_files'] },
+  { type: 'sanctions', short: 'Sanctions', label: 'UK sanctions list', guidance: 'Search the applicant\'s full name (and any previous names) on the FCDO UK Sanctions List. Record "No match" and the date searched.', link: 'sanctions' },
+  { type: 'dbs', short: 'DBS', label: 'Criminal record (Basic DBS)', guidance: 'Basic DBS certificate obtained or checked on the DBS Update Service. Record certificate number and issue date.', link: 'dbs', docs: ['dbs_files'] },
+  { type: 'credit', short: 'Credit', label: 'Consumer information / credit check', guidance: 'Financial / consumer information search through a credit reference agency covering the 5-year address history. Record any CCJs, bankruptcy or IVAs.' },
+  { type: 'history', short: 'History', label: '5-year history verified', guidance: 'Every period of the 5-year history verified in writing (employer / education / DWP / accountant) or by statutory declaration where unavoidable.' },
+  { type: 'references', short: 'References', label: 'References', guidance: 'Written references received and reviewed.' },
+  { type: 'interview', short: 'Interview', label: 'Pre-employment interview', guidance: 'Face-to-face (or live video) interview conducted to clarify the application and any gaps.' },
 ];
 
 const VERIFICATION_STATUSES = {
@@ -149,10 +149,39 @@ function ensureChecks(appId) {
   for (const c of CHECK_TYPES) ins.run(appId, c.type);
 }
 
+// Evidence attached by staff to a screening check (screenshots / PDFs), with who attached it and when.
+function checkEvidence(appId) {
+  const out = {};
+  const rows = db.prepare(`SELECT d.*, u.first_name || ' ' || u.last_name AS uploader FROM documents d LEFT JOIN users u ON u.id = d.uploaded_by
+    WHERE d.application_id = ? AND d.field_key LIKE 'admin:check_%' ORDER BY d.id`).all(appId);
+  for (const r of rows) (out[r.field_key.slice('admin:check_'.length)] = out[r.field_key.slice('admin:check_'.length)] || []).push(r);
+  return out;
+}
+
 function checks(appId) {
   ensureChecks(appId);
   const rows = Object.fromEntries(db.prepare(`SELECT c.*, u.first_name || ' ' || u.last_name AS checker FROM checks c LEFT JOIN users u ON u.id = c.checked_by WHERE application_id = ?`).all(appId).map((r) => [r.type, r]));
-  return CHECK_TYPES.map((t) => ({ ...t, ...rows[t.type], linkInfo: t.link ? config.checkLinks[t.link] : null }));
+  const evidence = checkEvidence(appId);
+  return CHECK_TYPES.map((t) => ({ ...t, ...rows[t.type], evidence: evidence[t.type] || [], linkInfo: t.link ? config.checkLinks[t.link] : null }));
+}
+
+// e.g. SIA_Check_JSmith_2026-09-28_1432.png (UK time). A suffix is added if several land in the same minute.
+function evidenceFilename(app, checkType, ext, existingNames = []) {
+  const t = CHECK_TYPES.find((c) => c.type === checkType);
+  const a = data(app).application || {};
+  let first = a.forenames; let last = a.surname;
+  if (!first || !last) {
+    const u = db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(app.user_id) || {};
+    first = first || u.first_name || ''; last = last || u.last_name || '';
+  }
+  const clean = (x) => String(x || '').normalize('NFKD').replace(/[^A-Za-z0-9]/g, '');
+  const who = `${clean(first).charAt(0).toUpperCase()}${clean(last)}` || 'Applicant';
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date()).map((x) => [x.type, x.value]));
+  const base = `${t ? t.short : checkType}_Check_${who}_${parts.year}-${parts.month}-${parts.day}_${parts.hour}${parts.minute}`;
+  let name = `${base}.${ext}`;
+  for (let n = 2; existingNames.includes(name); n++) name = `${base}_${n}.${ext}`;
+  return name;
 }
 
 function verifications(appId) {
@@ -161,6 +190,6 @@ function verifications(appId) {
 
 module.exports = {
   STATUSES, CHECK_TYPES, VERIFICATION_STATUSES, LETTER_CODES,
-  createForUser, get, getByUser, data, adminData, sectionState, saveSection, saveAdmin, setStatus,
+  createForUser, get, getByUser, data, adminData, sectionState, saveSection, saveAdmin, setStatus, checkEvidence, evidenceFilename,
   docs, docCounts, progress, deadline, applicantName, syncVerifications, checks, verifications, ensureChecks,
 };

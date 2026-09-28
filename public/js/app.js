@@ -230,6 +230,117 @@
   }
   $$('[data-files]').forEach(initFiles);
 
+  // ---------- Screening check evidence: paste / drop / browse ----------
+  // Staff screenshot a result (Win+Shift+S / PrtScn), click the check, press Ctrl+V. Files are previewed
+  // (removable) and only uploaded when "Save check" is pressed; the server names and attributes them.
+  const EV_TYPES = /^(image\/(png|jpeg|webp|gif)|application\/pdf)$/;
+  let activeCheckForm = null;
+  const ukStamp = () => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return p.year + '-' + p.month + '-' + p.day + '_' + p.hour + p.minute;
+  };
+
+  function initCheckForm(cform) {
+    const zone = $('[data-paste-zone]', cform);
+    if (!zone) return;
+    const staged = [];
+    const box = $('[data-staged]', cform); const list = $('[data-staged-list]', cform); const note = $('[data-staged-note]', cform);
+    const extOf = (f) => (f.type === 'application/pdf' ? 'pdf' : f.type === 'image/jpeg' ? 'jpg' : f.type.split('/')[1]);
+
+    function render() {
+      list.innerHTML = '';
+      const stamp = ukStamp(); const used = {};
+      staged.forEach((f, i) => {
+        let name = cform.dataset.evPrefix + '_' + stamp + '.' + extOf(f);
+        used[name] = (used[name] || 0) + 1;
+        if (used[name] > 1) name = name.replace(/(\.\w+)$/, '_' + used[name] + '$1');
+        const li = document.createElement('li');
+        li.innerHTML = '<a class="ev-thumb" target="_blank" rel="noopener"></a><div class="ev-meta"><b></b><span class="small muted"></span></div><button type="button" class="btn btn-sm btn-ghost ev-del">Remove</button>';
+        const th = $('.ev-thumb', li);
+        if (!f._url) f._url = URL.createObjectURL(f);
+        th.href = f._url;
+        if (f.type.startsWith('image/')) { const im = document.createElement('img'); im.src = f._url; im.alt = 'Preview'; th.appendChild(im); } else th.innerHTML = '<span>PDF</span>';
+        $('b', li).textContent = name;
+        $('.ev-meta span', li).textContent = (f.size / 1024).toFixed(0) + ' KB · not saved yet';
+        $('button', li).addEventListener('click', () => { URL.revokeObjectURL(f._url); staged.splice(i, 1); render(); zone.focus(); });
+        list.appendChild(li);
+      });
+      box.classList.toggle('hidden', !staged.length);
+      note.textContent = staged.length ? staged.length + ' file' + (staged.length > 1 ? 's' : '') + ' ready – check the preview, then press "Save check". Final names are set when saved.' : '';
+      zone.classList.toggle('has-files', !!staged.length);
+    }
+
+    function add(files, source) {
+      let rejected = 0;
+      Array.from(files).forEach((f) => {
+        if (!EV_TYPES.test(f.type)) { rejected++; return; }
+        if (f.size > 15 * 1024 * 1024) { alert(f.name + ' is larger than 15 MB.'); return; }
+        if (staged.length >= 10) { rejected++; return; }
+        staged.push(f);
+      });
+      if (rejected) alert(source === 'paste' ? 'The clipboard does not contain an image. Take a screenshot first (Win+Shift+S or PrtScn), then paste.' : 'Only images and PDFs can be attached (maximum 10 per save).');
+      render();
+      zone.classList.remove('flash'); void zone.offsetWidth; zone.classList.add('flash');
+    }
+    cform._addEvidence = add;
+
+    const activate = () => { activeCheckForm = cform; $$('[data-paste-zone].active').forEach((z) => z.classList.remove('active')); zone.classList.add('active'); };
+    cform.addEventListener('focusin', activate);
+    cform.addEventListener('pointerdown', activate);
+    zone.addEventListener('click', (e) => { if (!e.target.closest('label')) zone.focus(); });
+    zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('[data-paste-browse]', zone).click(); } });
+    $('[data-paste-browse]', zone).addEventListener('change', (e) => { const picked = Array.from(e.target.files); e.target.value = ''; add(picked, 'browse'); });
+    ['dragenter', 'dragover'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('over'); }));
+    zone.addEventListener('drop', (e) => { activate(); add(e.dataTransfer.files, 'drop'); });
+
+    cform.addEventListener('submit', async (e) => {
+      if (!staged.length) return; // plain form post is fine without new files
+      e.preventDefault();
+      const btn = $('[data-check-save]', cform);
+      btn.disabled = true; btn.textContent = 'Saving…';
+      const fd = new FormData(cform);
+      fd.delete('evidence');
+      staged.forEach((f) => fd.append('evidence', f, f.name || 'screenshot.' + extOf(f)));
+      try {
+        const r = await fetch(cform.action, { method: 'POST', body: fd, headers: { Accept: 'application/json' } });
+        const res = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(res.error || 'Upload failed');
+        staged.length = 0;
+        const dest = new URL(res.redirect, location.href);
+        // Same page + query with only a #hash would not reload, so force it to show the saved evidence.
+        if (dest.pathname + dest.search === location.pathname + location.search) { location.hash = dest.hash; location.reload(); } else location.assign(dest.href);
+      } catch (err) {
+        alert(err.message || 'Could not save – please try again.');
+        btn.disabled = false; btn.textContent = 'Save check';
+      }
+    });
+  }
+  $$('[data-check-form]').forEach(initCheckForm);
+
+  // Ctrl+V anywhere on the page goes to the check you last clicked into (unless pasting text into a field).
+  document.addEventListener('paste', (e) => {
+    if (!$('[data-check-form]')) return;
+    const cd = e.clipboardData;
+    if (!cd) return;
+    const files = Array.from(cd.files || []).filter((f) => EV_TYPES.test(f.type));
+    if (!files.length) Array.from(cd.items || []).forEach((it) => { if (it.kind === 'file') { const f = it.getAsFile(); if (f && EV_TYPES.test(f.type)) files.push(f); } });
+    const inText = e.target.matches && e.target.matches('input[type=text], input:not([type]), textarea');
+    if (!files.length) {
+      if (!inText && e.target.closest && e.target.closest('[data-paste-zone]')) { e.preventDefault(); alert('The clipboard does not contain an image. Take a screenshot first (Win+Shift+S or PrtScn), then paste.'); }
+      return;
+    }
+    const target = (e.target.closest && e.target.closest('[data-check-form]')) || activeCheckForm || ($$('details[data-check][open] [data-check-form]').length === 1 ? $('details[data-check][open] [data-check-form]') : null);
+    if (!target) { alert('Open the check you want to attach this screenshot to, click into it, then paste again.'); return; }
+    e.preventDefault();
+    // Clipboard screenshots usually arrive as "image.png" – give them a sensible working name.
+    const named = files.map((f, i) => (f.name && f.name !== 'image.png' ? f : new File([f], 'screenshot-' + Date.now() + '-' + i + '.' + (f.type.split('/')[1] || 'png'), { type: f.type })));
+    target.closest('details').open = true;
+    target._addEvidence(named, 'paste');
+    $('[data-paste-zone]', target).scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
   // ---------- Section form ----------
   const form = $('[data-section-form]');
   if (!form) return;

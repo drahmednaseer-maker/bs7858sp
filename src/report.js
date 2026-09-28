@@ -296,6 +296,13 @@ async function build(app, opts = {}) {
     ref: c.reference, notes: c.notes, by: c.checker ? `${c.checker}\n${fmtD(c.checked_at)}` : '',
   })));
 
+  r.h2('Check evidence');
+  const evRows = [];
+  for (const c of apps.checks(app.id)) for (const e of c.evidence) evRows.push({ check: c.label, file: e.original_name, by: e.uploader || '', at: fmtD(e.created_at) });
+  r.table([
+    { key: 'check', label: 'Check', w: 24 }, { key: 'file', label: 'Evidence file (image in appendix)', w: 40 }, { key: 'by', label: 'Attached by', w: 18 }, { key: 'at', label: 'Date / time', w: 18 },
+  ], evRows, { empty: 'No evidence attached to checks yet' });
+
   r.h2('Authorisation');
   const auth = admin.authorisation || {};
   const authRow = (k, label) => {
@@ -359,7 +366,10 @@ async function build(app, opts = {}) {
     r.h1('Appendix – document images');
     for (const img of images) {
       r.ensure(300);
-      r.doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.head).text(`${img.original_name}  ·  ${img.field_key.replace(/^[^:]+:/, '').replace(/\.[a-f0-9]{12}\./, ' › ')}  ·  uploaded ${fmtD(img.created_at)}`, M, d.y);
+      const chk = img.field_key.startsWith('admin:check_') && apps.CHECK_TYPES.find((c) => `admin:check_${c.type}` === img.field_key);
+      const by = img.uploaded_by ? db.prepare("SELECT first_name || ' ' || last_name AS n FROM users WHERE id = ?").get(img.uploaded_by) : null;
+      const where = chk ? `Check evidence: ${chk.label}` : img.field_key.replace(/^[^:]+:/, '').replace(/\.[a-f0-9]{12}\./, ' › ');
+      r.doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.head).text(`${img.original_name}  ·  ${where}  ·  ${chk && by ? `attached by ${by.n}` : 'uploaded'} ${fmtD(img.created_at)}`, M, d.y);
       try {
         d.image(files.read(img), M, d.y + 4, { fit: [r.W, 270], align: 'center' });
       } catch { r.para('(image could not be embedded)', { color: C.muted }); }

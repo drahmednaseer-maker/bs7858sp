@@ -8,9 +8,9 @@ const { encryptBuffer, decryptBuffer } = require('./crypto');
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif', 'application/pdf']);
 
-const upload = multer({
+const makeUploader = (maxFiles) => multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 15 * 1024 * 1024, files: maxFiles },
   fileFilter: (req, file, cb) => {
     if (ALLOWED.has(file.mimetype)) return cb(null, true);
     const err = new Error('Only photos (JPG, PNG, HEIC, WEBP) and PDF files can be uploaded.');
@@ -19,6 +19,9 @@ const upload = multer({
     cb(err);
   },
 });
+const upload = makeUploader(1);
+const uploadMany = makeUploader(10);
+const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic', 'application/pdf': 'pdf' };
 
 // Check magic bytes so a renamed file can't masquerade as an image/PDF.
 function sniff(buf) {
@@ -32,12 +35,13 @@ function sniff(buf) {
   return null;
 }
 
-function store(appId, fieldKey, file, userId) {
+// nameFor(ext) lets callers generate the stored display name from the detected file type.
+function store(appId, fieldKey, file, userId, nameFor = null) {
   const kind = sniff(file.buffer);
   if (!kind) { const e = new Error('This file type is not supported.'); e.expose = true; throw e; }
   const stored = `${crypto.randomUUID()}.bin`;
   fs.writeFileSync(path.join(config.uploadDir, stored), encryptBuffer(file.buffer));
-  const name = path.basename(file.originalname).replace(/[^\w.\- ()]/g, '_').slice(0, 120) || 'upload';
+  const name = nameFor ? nameFor(EXT[kind] || 'bin') : (path.basename(file.originalname).replace(/[^\w.\- ()]/g, '_').slice(0, 120) || 'upload');
   const r = db.prepare('INSERT INTO documents (application_id, field_key, original_name, stored_name, mime, size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(appId, fieldKey, name, stored, kind === 'image/heic' ? file.mimetype : kind, file.size, userId);
   return db.prepare('SELECT * FROM documents WHERE id = ?').get(Number(r.lastInsertRowid));
@@ -61,4 +65,4 @@ function sendDoc(res, doc, download) {
   res.send(buf);
 }
 
-module.exports = { upload, store, read, remove, sendDoc };
+module.exports = { upload, uploadMany, store, read, remove, sendDoc, sniff };

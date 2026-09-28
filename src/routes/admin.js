@@ -81,7 +81,7 @@ router.get('/applications/:id', loadApp, (req, res) => {
     emails: db.prepare('SELECT id, to_addr, subject, status, created_at FROM emails WHERE application_id = ? ORDER BY id DESC').all(app.id),
     staff: db.prepare("SELECT id, first_name, last_name FROM users WHERE role IN ('reviewer','superadmin') AND active = 1").all(),
     VERIFICATION_STATUSES: apps.VERIFICATION_STATUSES, LETTER_CODES: apps.LETTER_CODES, DOC_REGISTER: report.DOC_REGISTER,
-    checkLinks: config.checkLinks, fileBase: `/admin/applications/${app.id}/file/`, screening: config.screening,
+    checkLinks: config.checkLinks, fileBase: `/admin/applications/${app.id}/file/`, screening: config.screening, openCheck: String(req.query.open || ''),
   });
 });
 
@@ -121,18 +121,43 @@ router.post('/applications/:id/request-info', loadApp, async (req, res) => {
 });
 
 // ---------------- Checks ----------------
-router.post('/applications/:id/checks/:type', loadApp, files.upload.single('evidence'), (req, res) => {
+router.post('/applications/:id/checks/:type', loadApp, files.uploadMany.array('evidence', 10), (req, res) => {
   const type = req.params.type;
   if (!apps.CHECK_TYPES.find((c) => c.type === type)) return res.status(400).json({ error: 'Unknown check' });
   const status = ['pending', 'pass', 'fail', 'refer', 'na'].includes(req.body.status) ? req.body.status : 'pending';
   apps.ensureChecks(req.app_.id);
   db.prepare(`UPDATE checks SET status = ?, reference = ?, notes = ?, checked_by = ?, checked_at = datetime('now') WHERE application_id = ? AND type = ?`)
     .run(status, String(req.body.reference || '').slice(0, 300), String(req.body.notes || '').slice(0, 3000), req.user.id, req.app_.id, type);
-  if (req.file) files.store(req.app_.id, `admin:check_${type}`, req.file, req.user.id);
-  audit({ applicationId: req.app_.id, user: req.user, action: 'check_recorded', detail: `${type}: ${status}${req.body.reference ? ` (${req.body.reference})` : ''}${req.file ? ' + evidence' : ''}`, ip: req.ip });
+  // Evidence screenshots/PDFs: auto-named, linked to this check, and attributed to the signed-in user.
+  const key = `admin:check_${type}`;
+  const names = (apps.checkEvidence(req.app_.id)[type] || []).map((d) => d.original_name);
+  const attached = [];
+  for (const f of req.files || []) {
+    try {
+      const doc = files.store(req.app_.id, key, f, req.user.id, (ext) => apps.evidenceFilename(req.app_, type, ext, names));
+      names.push(doc.original_name);
+      attached.push(doc.original_name);
+      audit({ applicationId: req.app_.id, user: req.user, action: 'evidence_attached', detail: `${type}: ${doc.original_name}`, ip: req.ip });
+    } catch (e) {
+      if (!e.expose) throw e;
+    }
+  }
+  audit({ applicationId: req.app_.id, user: req.user, action: 'check_recorded', detail: `${type}: ${status}${req.body.reference ? ` (${req.body.reference})` : ''}${attached.length ? ` + ${attached.length} evidence file(s)` : ''}`, ip: req.ip });
   if (status !== 'pending' && req.app_.status === 'submitted') apps.setStatus(req.app_, 'under_review');
-  req.flash('success', 'Check recorded.');
-  res.redirect(`/admin/applications/${req.app_.id}?tab=checks#check-${type}`);
+  req.flash('success', `Check recorded${attached.length ? ` with ${attached.length} evidence file${attached.length > 1 ? 's' : ''}: ${attached.join(', ')}` : ''}.`);
+  const dest = `/admin/applications/${req.app_.id}?tab=checks&open=${type}#check-${type}`;
+  if ((req.get('accept') || '').includes('json')) return res.json({ ok: true, redirect: dest, attached });
+  res.redirect(dest);
+});
+
+router.post('/applications/:id/evidence/:docId/delete', loadApp, (req, res) => {
+  const doc = db.prepare("SELECT * FROM documents WHERE id = ? AND application_id = ? AND field_key LIKE 'admin:check_%'").get(req.params.docId, req.app_.id);
+  if (!doc) return res.redirect(`/admin/applications/${req.app_.id}?tab=checks`);
+  const type = doc.field_key.slice('admin:check_'.length);
+  files.remove(doc);
+  audit({ applicationId: req.app_.id, user: req.user, action: 'evidence_removed', detail: `${type}: ${doc.original_name}`, ip: req.ip });
+  req.flash('success', `Removed ${doc.original_name}.`);
+  res.redirect(`/admin/applications/${req.app_.id}?tab=checks&open=${type}#check-${type}`);
 });
 
 // ---------------- Verifications ----------------
