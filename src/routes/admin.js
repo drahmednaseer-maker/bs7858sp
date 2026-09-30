@@ -455,10 +455,11 @@ router.post('/settings/workflow', requireSuper, (req, res) => {
 router.post('/settings/test-email', requireSuper, async (req, res) => {
   const v = await mailer.verifyConnection();
   if (!v.ok) { req.flash('error', `Could not connect to the mail server: ${v.error}`); return res.redirect('/admin/settings?tab=workflow'); }
-  const r = await mailer.send({ to: req.user.email, subject: 'Test email from the onboarding portal', title: 'Email is working',
+  const to = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(req.body.to || '').trim()) ? String(req.body.to).trim() : req.user.email;
+  const r = await mailer.send({ to, subject: 'Test email from the onboarding portal', title: 'Email is working',
     html: `<p>This test was sent from ${mailer.esc(config.smtp.from)} by the ${mailer.esc(config.company.name)} onboarding portal. Reference requests and contracts will be sent from this address.</p>` });
-  audit({ user: req.user, action: 'test_email', detail: `${req.user.email}: ${r.status}${r.error ? ` – ${r.error}` : ''}`, ip: req.ip });
-  req.flash(r.status === 'sent' ? 'success' : 'error', r.status === 'sent' ? `Test email sent to ${req.user.email} – check the inbox (and spam folder).` : `Sending failed: ${r.error}`);
+  audit({ user: req.user, action: 'test_email', detail: `${to}: ${r.status}${r.error ? ` – ${r.error}` : ''}`, ip: req.ip });
+  req.flash(r.status === 'sent' ? 'success' : 'error', r.status === 'sent' ? `Test email sent to ${to} – check the inbox (and spam folder).` : `Sending failed: ${r.error}`);
   res.redirect('/admin/settings?tab=workflow');
 });
 

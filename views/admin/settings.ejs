@@ -125,7 +125,7 @@
         <div class="card-body small">
           <div class="kv"><div>Sending as</div><div><%= smtp.from %></div><div>Replies go to</div><div><%= company.email %></div></div>
           <% if (!smtp.configured) { %><p class="mt mb-0">Emails are currently kept in the <a href="/admin/emails">Outbox</a> instead of being sent. The mail server details are set on the hosting platform (not here) for security.</p><% } else { %>
-            <form method="post" action="/admin/settings/test-email" class="mt"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-sm">Send a test email to <%= user.email %></button></form>
+            <form method="post" action="/admin/settings/test-email" class="inline-form mt"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="email" name="to" value="<%= company.email %>" aria-label="Send test email to"><button class="btn btn-sm">Send test email</button></form>
           <% } %>
         </div>
       </div>
