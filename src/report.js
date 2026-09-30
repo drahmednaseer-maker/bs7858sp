@@ -231,6 +231,7 @@ async function build(app, opts = {}) {
     ['Screening started', fmtD(app.screening_started_at)],
     [`Screening due (${config.screening.completionWeeks} weeks)`, dl ? `${fmtDate(dl.due.toISOString())}${['cleared', 'rejected'].includes(app.status) ? '' : ` (${dl.daysLeft >= 0 ? `${dl.daysLeft} days remaining` : `${-dl.daysLeft} days overdue`})`}` : ''],
     ['Decision date', fmtD(app.decision_at)],
+    ['Contract of employment', (() => { const c = require('./contracts').current(app.id); return !c ? 'Not sent' : c.status === 'signed' ? `Signed ${fmtD(c.signed_at)} (${c.fields.job_title}, ${c.fields.pay_rate}/hr)` : `Sent ${fmtD(c.sent_at)} – awaiting signature`; })()],
     [`${config.screening.periodYears}-year history coverage`, `${gaps.coveragePct}%${gaps.gaps.length ? ` – ${gaps.gaps.length} gap(s) outstanding` : ' – continuous'}`],
     ['Report generated', `${fmtD(new Date().toISOString())} by ${opts.generatedBy || 'System'}${opts.reason ? ` (${opts.reason})` : ''}`],
   ].forEach(([l, v, b], i) => r.row(l, v, { shade: i % 2 === 0, bold: b }));
@@ -354,7 +355,8 @@ async function build(app, opts = {}) {
     for (const v of responded) {
       r.h2(v.label);
       const resp = decrypt(v.response_enc);
-      for (const [k, val] of Object.entries(resp)) if (k !== 'signature') r.row(k.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()), val);
+      const { labelFor } = require('./routes/referee');
+      for (const [k, val] of Object.entries(resp)) if (k !== 'signature') r.row(labelFor(k), val);
       r.row('Received', fmtD(v.responded_at));
     }
   }

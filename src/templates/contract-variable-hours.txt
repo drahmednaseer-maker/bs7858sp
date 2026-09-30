@@ -1,0 +1,204 @@
+# CONTRACT OF EMPLOYMENT
+
+This statement dated {{contract.date}} meets the requirements of the Employment Rights Act 1996. It is the Statement of Initial Employment Particulars relating to the Contract of Employment of the person named below and supersedes any previous such statements or contracts.
+
+**Name of Employee:** {{employee.full_name}}
+**Employee reference:** {{contract.employee_ref}}
+**Name of Employer:** {{company.legal_name}}
+**Address of Employer:** {{company.address}}
+**Start date:** {{contract.start_date}}
+**Job title:** {{contract.job_title}}
+
+The Company may from time to time require you to undertake additional or other duties as necessary to meet the needs of the Company on a short term basis e.g. holiday or sickness cover.
+
+## Probationary period
+New employees join the Company on a {{contract.probation}} probationary period.
+During and/or at the end of your probationary period you may be asked to attend employment reviews to discuss your overall work performance and conduct. This may include consideration of your absence record, competency, timekeeping, attitude, and interactions with colleagues and clients. If the Company is satisfied with your overall work performance and conduct, your continuing employment will be confirmed.
+If the Company is not satisfied with your overall work performance and conduct, your employment will be terminated with the required notice.
+The Company reserves the right in borderline cases to extend the probationary period, in the hope that during any further periods, your work performance and conduct will reach a level that is satisfactory to the Company. After such further period, a subsequent employment review will be held and a decision made. Your continuing employment will then either be confirmed, terminated with the required notice or the probationary period could be extended.
+
+## Right to work in the UK
+You must notify the Company as soon as you become aware of any changes to your personal circumstances that may affect your right to work in the UK. The Company reserves the right to conduct periodic checks and/or request documentation in relation to your right to work in the UK as appropriate, at any time.
+
+## Place of work
+You will be based from home and will be required to work at any client sites as directed by the Company to meet the needs of the business.
+You will not be required to work outside the UK.
+
+## Pay arrangements
+
+Your rate of pay is {{contract.pay_rate}} an hour (from {{contract.pay_effective_from}}).
+Payment is made monthly, in arrears, directly into your bank/building society on or before the last working day of each month.
+If a mistake is made in the payment of any monies due, the Company expects to be notified immediately. The error will normally be corrected at the next available opportunity.
+
+## Contractual payments and benefits
+You are entitled to the following payments and benefits:
+
+## Overtime
+All hours worked in excess of your assigned hours in a day are paid at single time.
+All overtime must be pre-authorised.
+
+## Hours of work
+The business operates 24 hours a day, seven days a week.
+Your hours of work are variable each week in accordance with the agreed rota, to meet the operational requirements of the Company and will be worked on any days of the week.
+Where your working day exceeds six hours you will be entitled to a paid break of 20 minutes. If you are under 18 years of age, you are entitled to a paid break of 30 minutes if your daily working time exceeds 4.5 hours. You are not normally permitted to work in excess of 40 hours in any week and eight hours each day.
+There is no guarantee of any working hours in any given week.
+
+## Working time regulations (waiver)
+By signing this contract and a separate opt out waiver form you agree to opt out of the 48 hour limit on the average working week during your employment. However, you have the right to withdraw such agreement on giving the Employer not less than three months written notice.
+
+## Training
+The Company will provide you with all the necessary training required by your core duties and will meet the costs involved.
+
+## Holiday entitlement
+The holiday year runs from 1 January to 31 December. Full-time employees are entitled to 5.6 weeks' holiday a year, inclusive of any bank/public holidays that they may be permitted to take, calculated at the rate of 1/52nd for each complete week of service remaining in the current holiday year.
+During your first year of service, however, your entitlement to take holidays will accrue on the first day of each month of that year at the rate of 1/12th of the annual entitlement. Where the current accrual includes a fraction of a day other than a half-day, the fraction will be treated as a half-day if it is less than a half-day and as a whole day if it is more than a half-day.
+There is no additional entitlement to bank/public holidays.
+You will be required to work on any bank/public holiday that falls on your rostered working days.
+The bank/public holidays are: New Year’s Day, Good Friday, Easter Monday, the first Monday in May, the last Monday in May, the last Monday in August, Christmas Day and Boxing Day, or such other days as may be substituted.
+Part-time and variable hours’ employees are entitled to pro-rata holidays.
+A more detailed explanation is contained in the Employee Handbook.
+
+## Holiday pay
+As you do not have normal contractual hours your holiday pay will be an average of your payment received for hours worked over the 52 worked weeks preceding the holiday. Where you have not yet worked 52 weeks, an average of the weeks worked will be used as the calculation.
+On termination of employment holidays will be calculated in proportion to the full entitlement. If you have taken less than this entitlement the surplus holiday pay will be added to your final pay. If you have taken more than this entitlement the excess holiday pay will be deducted from your pay.
+
+## Sickness absence
+The Company is required to pay Statutory Sick Pay for certain periods of sickness absence. Payment may be made to eligible employees for periods of absence of four days or more. There is a maximum period of 28 weeks payment in one period of incapacity for work.
+A more detailed explanation is contained in the Employee Handbook.
+If you receive or are awarded compensation or damages because of your illness or injuries, then any payments that we may have made to you because of the absence must be repaid to us up to an amount not exceeding the amount of the compensation or damages received.
+
+## Other paid leave
+Subject to eligibility, as set out in the Employee Handbook, the Company provides the following statutory leave:
+- maternity leave
+- paternity leave
+- parental bereavement leave
+- parental leave
+- shared parental leave
+- adoption leave
+Further details can be found in the Company’s Employee Handbook.
+
+## Disciplinary procedure and rules
+Should your conduct or performance fall below the standards required then disciplinary action may be taken. This procedure is designed to help and encourage employees to achieve and maintain the Company's standards of conduct and performance and should be looked upon as a corrective process.
+A more detailed explanation of the procedure and rules is contained in the Employee Handbook.
+
+## Disciplinary appeal procedure
+You have the right to appeal at any stage in the disciplinary procedure if you are dissatisfied either with a disciplinary decision made against you or the level of penalty imposed. You should do this in writing to a Director not previously involved in the disciplinary decision within five days of receiving your confirmation of discipline letter.
+A more detailed explanation of the procedure is contained in the Employee Handbook.
+
+## Grievance procedure
+If you have any grievance relating to your employment, you should raise it with the Operations Manager in the first instance. If you want the grievance to be dealt with formally, you must raise it in writing.
+A more detailed explanation of the formal procedure is contained in the Employee Handbook.
+
+## Pension scheme
+Under the current pensions legislation you will be enrolled into an ‘auto-enrolment’ pension scheme if you are eligible. If you are not automatically enrolled into the scheme you may still be entitled to join. Further details will be provided separately.
+
+## Collective agreements
+There are no collective agreements directly affecting your terms and conditions of employment.
+
+## Notice periods
+
+## Notice period to be given by the employee to the employer
+Less than one month’s service – nil.
+One month’s service to the satisfactory completion of your probationary period – one week’s written notice to the employer.
+From the satisfactory completion of your probationary period – one month’s written notice to the employer.
+
+## Notice to be given by the employer to the employee
+The Company has the right to serve notice of termination of your employment at any time in accordance with the notice provisions below.
+Less than one month’s service – nil.
+One month’s service to the satisfactory completion of your probationary period – one week.
+From the satisfactory completion of your probationary period but less than five years – one month.
+Five years’ service or more – one week for each complete year of service up to a maximum of 12 weeks.
+
+## General
+If you leave without giving and working your full notice, any additional cost in covering your duties during the notice period not worked will be deducted from any termination pay due to you.
+The Company may serve immediate notice on you to require you to take some or all of any outstanding holiday entitlement that you may have during your notice period. This clause amends the obligations to provide notice of taking holiday under regulation 15(5) of the Working Time Regulations.
+
+## Deduction from pay
+If during or on termination of your employment, and after investigation, it is deemed reasonable for you to reimburse the Company for financial losses incurred, you agree that the Company has the right to deduct this sum from your pay or any other monies owed to you. By signing this contract, you expressly consent to any such deduction/s pursuant to part II of the Employment Rights Act 1996 (Employment Rights (Northern Ireland) Order 1996). Examples of deductions which may be made by the Company include, but are not limited to the following:
+- The amount of any overpayment of pay, commission, or bonus.
+- Any holiday pay relating to leave you have taken in excess of that which you have accrued at the point of termination.
+- Outstanding loan or pay advance repayments.
+- Over-claimed or disallowed expenses.
+- Any cash floats not repaid by you at the end of your employment.
+- Any other sums owed to the Company by you.
+- Costs incurred through Company Credit Card and/or Fuel Card misuse.
+- Cost of any unauthorised personal phone calls/data usage or personal fuel.
+- Cost of replacement or repair of equipment or uniform not returned lost, stolen, or damaged due to your negligence during or after your employment.
+- Other costs reasonably incurred in connection with equipment not returned, returned damaged or unusable during or after your employment (e.g. replacement of locks where keys are not returned).
+- Any insurance excess payable by the Company as a result of damage caused by your negligence or lack of care.
+- An amount equal to our reasonable loss or the extra cost of covering your duties should you fail to work your full contractual notice. This applies when you leave employment early without agreement.
+- Any fines, penalties or losses sustained that is the result of your carelessness, negligence, deliberate vandalism, dishonesty or a breach of Company rules.
+- Any monies paid or payable by the Company to any third party due to any conduct undertaken by you for which we may be deemed vicariously liable.
+- Any damages, expenses or other monies reasonably payable by us to a third party for your act or omission.
+- Any deductions elsewhere under this contract in relation to which the reserved right to deduct applies.
+- Any deductions authorised by any separate agreement into which the Company has entered with you (for example for training costs or criminal record checks).
+
+## Deduction procedure
+We will follow our deduction procedure in respect of any deduction we make. Any deduction is by way of compensation, based on a genuine assessment of our costs. Where relevant and appropriate, we will set out a pre-estimate of losses and this will be provided to you. A deduction will only be made in respect of circumstances entirely attributable to you/your action. We do not use the deduction provision to impose penalties. However, we may separately investigate the circumstances utilising our disciplinary provisions where deemed necessary.
+If we are to make any such deduction from your pay or any other monies owed to you then we will give you written notice of this before making the deduction and set out the circumstance(s) that give rise to the deduction. A repayment plan may be agreed where necessary and where insufficient remuneration is due to cover the cost, civil court action may be taken to recover any outstanding debt.
+
+## Training costs agreement
+The Company may require you to sign a ‘Training costs agreement’ form prior to you undertaking any training. This Agreement will authorise the Company to make a deduction for the cost of the training (on a pro-rata basis) if you fail to complete any relevant course and/or sit and pass all or any tests or exams associated with it, or if your employment ends within one year of completing any training course for any reason except redundancy.
+
+## Pay in lieu
+Whether following a resignation or a dismissal, it is agreed that the Company may terminate your employment with immediate effect on notification that a payment in lieu of notice is to be made to you. You shall not be entitled to any benefit other than pay in respect of any period for which payment in lieu is to be made.
+
+## Garden leave
+The Company reserves the right to require you to remain away from your place of employment for all or part of your notice period, with or without work, whether you or the Company gives notice. You must accept that whilst still employed by the Company on notice either at home or on Company premises you must not work for any other company, firm, person or business.
+
+## Lay off/short time working
+The Company reserves the right to lay off employees or to introduce short-time working should this be required by a downturn in work or other needs of the business. Where short-time working is introduced, pay will be reduced in proportion with the reduction in working hours.
+A more detailed explanation of the procedure is shown in the Employee Handbook.
+
+## Confidentiality
+In this Agreement, “confidential information” means:
+- information relating to the businesses, finances, dealings, transactions and affairs of the Company including price and cost information, discount structures, sales statistics, business plans and programmes, business opportunities, expansion plans, staff salaries and terms and conditions, marketing surveys, research and development projects, formulae, inventions, designs, discoveries, know-how, methods, processes, techniques, trade secrets, technical data, business forms and operating procedures, policies and practices;
+- names, addresses and contact details or other personal data (as defined under Article 4(1) of the General Data Protection Regulation) relating to prospective, current or past employees, customers or clients or potential customers or clients or suppliers or potential suppliers of the Company;
+- analyses made, or views taken, by the Company in respect of the businesses, finances, dealings, transactions and affairs of the Company, any client, or potential client, any supplier or potential supplier of the Company, or any other third party;
+- information in respect of which the Company is bound by an obligation of confidentiality to a third party; and
+- any information which is identified to you by the Company as being confidential or secret in nature or which ought reasonably to be regarded as confidential.
+You will not (except in the proper performance of your duties) either during your employment or at any time after its termination for whatever reason without the prior written consent of the Company or as required by law, directly or indirectly:
+- disclose any confidential information to any person,
+- use any confidential information for your own benefit or for the benefit of any other person, company or other undertaking,
+- knowingly permit or enable any person (including yourself) to acquire or to make use of any such confidential information for any purpose in a manner which may cause loss or damage to the Company.
+You will use your best efforts to prevent:
+- the publication or disclosure of confidential information,
+- any misuse of such information.
+With respect to any confidential data (including personal data) disclosed to or accessed by you, you must ensure that you notify the Company of any unauthorised or unlawful processing or any accidental loss, destruction, damage, alteration or disclosure of personal or confidential data as soon as you become aware and keep the Company informed of any related developments.
+You must obtain permission from a Director before agreeing to give any lecture, press interview, or to publish any article, which would give details of the Company’s business.
+The restrictions contained in this clause will not apply to any confidential information or other information which (otherwise than through your default) becomes available to, or within the knowledge of, the public generally or to information disclosed for the purpose of making a protected disclosure within the meaning of Part IVA of the Employment Rights Act 1996 or to a relevant pay disclosure made in compliance with section 77 of the Equality Act 2010.
+
+## Post-termination restrictive covenants
+a) In this post-termination and employment restraint clause:
+(i) ‘termination date’ means the date of termination of your employment with the Company;
+(ii) ‘restricted period’ means the six month period following the termination date less any period on garden leave;
+(iii) ‘relevant period’ means the 12 month period ending on the termination date;
+(iv) ‘restricted customer’ means any person, firm or company or other entity who was at any time in the relevant period a customer of the Company.
+(v) ‘prospective customer’ means any person, firm or company who was at the termination date negotiating with the Company with a view to dealing with the Company as a customer.
+(vi) ‘prohibited business’ means any business or activity carried on by the Company at the termination date or at any time in the relevant period, in which you shall have been directly or indirectly concerned in the course of your employment;
+(vii) ‘competing businesses’ means those companies, businesses or undertakings which provide the same or very similar services to the Company or compete with the Company;
+(viii) ‘supplier’ means any person, firm or company or other undertaking who or which has provided goods or services (other than utilities or administration - related supplies) to the Company and with whom you dealt during the relevant period (other than on a minimal basis) or about whom you had access to confidential information;
+(ix) ‘key employee’ means any person employed or engaged by the Company during the relevant period in senior and/or management role or in roles with access to confidential information;
+b) You undertake that you will not, so as to compete with the Company, during the period of six months after the termination date directly or indirectly, on your own account or on behalf of or in conjunction with any person, firm or company or other organisation and in particular (but not limited to) competing businesses entice, canvass, or solicit the custom or business of any restricted customer with whom you shall have had material dealings in the course of your duties at any time in the relevant period or with whom, to your knowledge, any employee of the Company under your control shall have had material dealings in the course of their duties to the Company in the relevant period in relation to prohibited business.
+c) You undertake that you will not, so as to compete with the Company, during the period of six months after the termination date directly or indirectly, on your own account or on behalf of or in conjunction with any person, firm or company or other organisation and in particular (but not limited to) competing businesses accept or by any other means conduct or seek to conduct business with any restricted customer with whom you shall have had material dealings in the course of your duties at any time in the relevant period or with whom, to your knowledge, any employee of the Company under your control shall have had material dealings in the course of their duties to the Company in the relevant period in relation to prohibited business.
+d) You undertake that you will not, so as to compete with the Company, during the period of six months after the termination date directly or indirectly, on your own account or on behalf of or in conjunction with any person, firm or company or other organisation and in particular (but not limited to) competing businesses directly or indirectly canvass, solicit, the custom or business of any prospective customer with whom you shall have had material dealings in the course of your duties at any time in the relevant period or with whom, to your knowledge, any employee of the Company under your control shall have had material dealings in the course of their duties to the Company in the relevant period in relation to prohibited business.
+e) You undertake that you shall not, so as to compete with the Company, during the period of six months after the termination date directly or indirectly, on your own account or on behalf of or in conjunction with any person, firm or company or other organisation and in particular (but not limited to) competing businesses directly or indirectly accept or by any other means conduct or seek to conduct business with any prospective customer with whom you shall have had material dealings in the course of your duties hereunder at any time in the relevant period or with whom, to your knowledge, any employee of the Company under your control shall have had material dealings in the course of their duties to the Company in the relevant period in relation to prohibited business.
+f) You undertake that you will not, during the period of six months after the termination date, and whether directly or indirectly, solely or jointly and whether on your own behalf or on behalf or in conjunction with any third party, be engaged in or concerned with any trade or business which carries out the prohibited business, and in particular you undertake that you will not be engaged in or by, or concerned with, any competing businesses.
+g) You undertake that you will not for a period of six months from the termination date, entice or solicit or endeavour to entice or solicit away from the Company any key employee with a view to such key employee working for or providing services to any competing businesses.
+h) You undertake that you will not for a period of six months from the termination date, employ or be directly involved in the employment of any key employee with a view to such key employee working for or providing services to any competing businesses.
+i) You undertake that you will not for a period of six months from the termination date, on your own account or on behalf of or in conjunction with any person, firm or company or other organisation and in particular of any specified competitor have any dealings with any supplier with whom you dealt during the relevant period (other than on a minimal basis) or about whom you had access to confidential information.
+j) You acknowledge and agree that each section, sub-clause or paragraph of this ‘Restrictive Covenant’ clause constitutes an entirely separate and independent restriction on you and that the duration, extent and application of each of such restrictions are no greater than is necessary for the protection of the legitimate interests of the Company.
+k) You acknowledge that if any restriction contained in this clause shall be adjudged to be void or ineffective for whatever reason, but would be valid and effective if part of the wording of it was deleted and/or any period or area referred to in it was reduced in scope, such restrictions will apply with such deletions or modifications as may be necessary to make them valid and effective.
+l) Before accepting any offer of future employment with another employer, you undertake that you will disclose a copy of this contract to the prospective employer and draw their attention to this clause headed ‘Post-termination restrictive covenants’ in particular.
+m) The period of the restriction(s) set out above will be reduced by any period of time that you have spent on Garden Leave.
+
+## Conflict of interest
+During your employment you will be expected to devote the whole of your working time and attention to Company business and to use your best endeavours to promote the general interests of the Company.
+If required to do so you must provide details of any relationships with any Company customers or suppliers and comply with any reasonable instructions given to you by the Company on such relationships.
+
+## Private work
+You are not permitted to take on private work for any customer or client or prospective customer or client of the Company during your employment, either during or outside working hours, except where prior written authorisation has been given. You must not provide quotations for private work, and if approached for such, you must inform management immediately. All queries for work must be directed to management and you should not discuss pricing at any point unless authorised to do so.
+
+## Other terms and conditions of employment
+Any agreed amendments that materially alter the terms and conditions contained in your contract will be notified to you in writing and shall take precedence over the terms in this statement.
+I have read, understood and am willing to abide by the terms and conditions laid down in the Employee Handbook and accept that they form an integral part of this Contract of Employment.

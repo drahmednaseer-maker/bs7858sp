@@ -9,6 +9,9 @@ const mailer = require('../mailer');
 const report = require('../report');
 const config = require('../config');
 const { requireApplicant } = require('../middleware');
+const contracts = require('../contracts');
+const settings = require('../settings');
+const verify = require('../verify');
 
 const router = express.Router();
 router.use(requireApplicant);
@@ -21,7 +24,54 @@ router.use((req, res, next) => {
   req.app_ = app;
   res.locals.application = app;
   res.locals.editable = EDITABLE.includes(app.status);
+  req.contract = contracts.current(app.id);
+  res.locals.hasContract = !!req.contract;
+  res.locals.contract = req.contract;
   next();
+});
+
+// ---------- Contract of employment (e-signature) ----------
+router.get('/contract', (req, res) => {
+  const c = req.contract;
+  if (!c) return res.render('error', { title: 'No contract yet', message: 'Your contract will appear here once our team has checked your documents and sent it to you.' });
+  if (c.status === 'sent' && !c.viewed_at) {
+    db.prepare("UPDATE contracts SET viewed_at = datetime('now') WHERE id = ?").run(c.id);
+    audit({ applicationId: req.app_.id, user: req.user, action: 'contract_viewed', detail: `Contract #${c.id}`, ip: req.ip });
+  }
+  res.render('applicant/contract', { title: 'My contract', c, bodyHtml: contracts.html(c.body), employeeName: contracts.employeeOf(req.app_).full_name, error: null });
+});
+
+router.post('/contract/sign', async (req, res) => {
+  const c = req.contract;
+  if (!c || c.status !== 'sent') return res.redirect('/apply/contract');
+  const image = String(req.body.signature || '');
+  const typedName = String(req.body.typed_name || '').trim().slice(0, 120);
+  const again = (error) => res.status(400).render('applicant/contract', { title: 'My contract', c, bodyHtml: contracts.html(c.body), employeeName: contracts.employeeOf(req.app_).full_name, error });
+  if (req.body.agree !== 'yes') return again('Please tick the box to confirm you have read and agree to the contract.');
+  if (typedName.length < 3) return again('Please type your full name.');
+  if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image) || image.length > 400000) return again('Please sign in the box and press "Use signature".');
+  const buf = await contracts.sign(req.app_, c, { image, typedName, ip: req.ip, ua: req.get('user-agent') });
+  audit({ applicationId: req.app_.id, user: req.user, action: 'contract_signed', detail: `Contract #${c.id} signed as "${typedName}"`, ip: req.ip });
+  const file = { filename: contracts.filename(req.app_, { status: 'signed' }), content: buf, contentType: 'application/pdf' };
+  mailer.send({
+    to: req.user.email, applicationId: req.app_.id, subject: 'Your signed contract of employment', title: 'Thank you – your contract is signed',
+    html: `<p>Dear ${mailer.esc(req.user.first_name)},</p><p>Thank you for signing your contract of employment with ${mailer.esc(config.company.legalName)}. A copy is attached for your records, and you can download it at any time from your account.</p>`,
+    attachments: [file],
+  }).catch(() => {});
+  mailer.send({
+    to: config.company.email, applicationId: req.app_.id, subject: `[Contract signed] ${contracts.employeeOf(req.app_).full_name} – ${req.app_.ref}`, title: 'Contract signed',
+    html: `<p><strong>${mailer.esc(typedName)}</strong> has signed contract #${c.id} (${mailer.esc(c.fields.job_title)}, ${mailer.esc(c.fields.pay_rate)}/hr). The signed PDF is attached.</p><p><a href="${config.baseUrl}/admin/applications/${req.app_.id}?tab=contract">Open in the portal</a></p>`,
+    attachments: [file],
+  }).catch(() => {});
+  req.flash('success', 'Thank you – your contract is signed. A copy has been emailed to you.');
+  res.redirect('/apply/contract');
+});
+
+router.get('/contract.pdf', async (req, res, next) => {
+  const c = req.contract;
+  if (!c) return next();
+  res.set({ 'Content-Type': 'application/pdf', 'Cache-Control': 'private, no-store', 'Content-Disposition': `inline; filename="${contracts.filename(req.app_, c)}"` });
+  res.send(await contracts.pdfFor(req.app_, c));
 });
 
 function sectionDocs(appId, sectionKey) {
@@ -180,6 +230,10 @@ router.post('/submit', async (req, res) => {
   apps.ensureChecks(fresh.id);
   audit({ applicationId: app.id, user: req.user, action: resubmission ? 'application_resubmitted' : 'application_submitted', ip: req.ip });
   try { await report.snapshot(fresh, req.user, resubmission ? 'Applicant resubmission' : 'Applicant submission'); } catch (e) { console.error('Report snapshot failed', e); }
+  // Optional (Settings → Workflow): email reference & verification requests straight away.
+  if (settings.get('workflow').auto_send_requests && fresh.sections && apps.data(fresh).application && apps.data(fresh).application.reference_consent === 'yes') {
+    verify.sendAllUnsent(fresh, { ip: req.ip }).catch((e) => console.error('Auto-send requests failed', e));
+  }
 
   const name = apps.applicantName(fresh);
   mailer.send({

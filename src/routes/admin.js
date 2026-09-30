@@ -10,6 +10,9 @@ const files = require('../files');
 const mailer = require('../mailer');
 const report = require('../report');
 const config = require('../config');
+const verify = require('../verify');
+const settings = require('../settings');
+const contracts = require('../contracts');
 const { requireStaff, requireSuper } = require('../middleware');
 
 const router = express.Router();
@@ -81,7 +84,8 @@ router.get('/applications/:id', loadApp, (req, res) => {
     emails: db.prepare('SELECT id, to_addr, subject, status, created_at FROM emails WHERE application_id = ? ORDER BY id DESC').all(app.id),
     staff: db.prepare("SELECT id, first_name, last_name FROM users WHERE role IN ('reviewer','superadmin') AND active = 1").all(),
     VERIFICATION_STATUSES: apps.VERIFICATION_STATUSES, LETTER_CODES: apps.LETTER_CODES, DOC_REGISTER: report.DOC_REGISTER,
-    checkLinks: config.checkLinks, fileBase: `/admin/applications/${app.id}/file/`, screening: config.screening, openCheck: String(req.query.open || ''),
+    checkLinks: config.checkLinks, fileBase: `/admin/applications/${app.id}/file/`, screening: config.screening, openCheck: String(req.query.open || ''), refLabel: require('./referee').labelFor,
+    contracts: contracts.list(app.id), contractAuto: contracts.autoFields(app), CONTRACT_FIELDS: contracts.EDITABLE, contractHasSig: !!settings.get('contract_defaults').issuer_signature,
   });
 });
 
@@ -161,40 +165,10 @@ router.post('/applications/:id/evidence/:docId/delete', loadApp, (req, res) => {
 });
 
 // ---------------- Verifications ----------------
-function verificationEmail(app, v, applicantName) {
-  const url = `${config.baseUrl}/r/${v.token}`;
-  const isRef = v.kind === 'reference';
-  return {
-    subject: `${isRef ? 'Reference request' : 'Employment / history verification'} – ${applicantName}`,
-    title: isRef ? 'Reference request' : 'Verification request',
-    html: `<p>Dear ${mailer.esc(v.contact_name || 'Sir or Madam')},</p>
-      <p><strong>${mailer.esc(applicantName)}</strong> has applied for a position with ${mailer.esc(config.company.name)} and has given your details ${isRef ? 'as a referee' : 'to confirm the following period of their history'}:</p>
-      <p style="background:#f3f6fb;padding:10px 14px;border-radius:6px">${mailer.esc(v.label)}</p>
-      <p>As a security company we are required to screen all staff in accordance with <strong>British Standard BS 7858:2019</strong>. The applicant has signed a Letter of Authority permitting us to contact you. We would be grateful if you could complete a short secure online form – it takes about 2 minutes.</p>
-      <p><a href="${url}" style="background:#0c2547;color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block">Complete the ${isRef ? 'reference' : 'verification'}</a></p>
-      <p style="font-size:13px;color:#5b6675">Or copy this link: ${url}<br>Alternatively reply to this email or call us on ${mailer.esc(config.company.phone)}. Thank you for your help.</p>`,
-  };
-}
-
-async function sendVerification(req, app, v) {
-  if (!v.contact_email) return { ok: false, msg: `${v.label}: no email address.` };
-  const t = v.token || token(24);
-  if (!v.token) db.prepare('UPDATE verifications SET token = ? WHERE id = ?').run(t, v.id);
-  const fresh = { ...v, token: t };
-  const mail = verificationEmail(app, fresh, apps.applicantName(app));
-  const r = await mailer.send({ to: v.contact_email, applicationId: app.id, ...mail });
-  const chase = ['sent', 'chased'].includes(v.status);
-  db.prepare(`UPDATE verifications SET status = ?, ${chase ? "chased_at = datetime('now')" : "sent_at = datetime('now')"}, updated_by = ? WHERE id = ?`)
-    .run(chase ? 'chased' : 'sent', req.user.id, v.id);
-  audit({ applicationId: app.id, user: req.user, action: chase ? 'verification_chased' : 'verification_sent', detail: `${v.label} → ${v.contact_email} (${r.status})`, ip: req.ip });
-  if (app.status === 'submitted') apps.setStatus(app, 'under_review');
-  return { ok: true, status: r.status };
-}
-
 router.post('/applications/:id/verifications/:vid/send', loadApp, async (req, res) => {
   const v = db.prepare('SELECT * FROM verifications WHERE id = ? AND application_id = ?').get(req.params.vid, req.app_.id);
   if (!v) return res.redirect(`/admin/applications/${req.app_.id}?tab=verification`);
-  const r = await sendVerification(req, req.app_, v);
+  const r = await verify.sendRequest(req.app_, v, { user: req.user, ip: req.ip });
   req.flash(r.ok ? 'success' : 'error', r.ok ? (r.status === 'sent' ? 'Request emailed.' : 'Request saved to the Outbox (SMTP not configured) – copy the link to send manually.') : r.msg);
   res.redirect(`/admin/applications/${req.app_.id}?tab=verification`);
 });
@@ -202,7 +176,7 @@ router.post('/applications/:id/verifications/:vid/send', loadApp, async (req, re
 router.post('/applications/:id/verifications/send-all', loadApp, async (req, res) => {
   const list = db.prepare("SELECT * FROM verifications WHERE application_id = ? AND status = 'not_sent'").all(req.app_.id);
   let sent = 0; const skipped = [];
-  for (const v of list) { const r = await sendVerification(req, req.app_, v); if (r.ok) sent++; else skipped.push(v.label); }
+  for (const v of list) { const r = await verify.sendRequest(req.app_, v, { user: req.user, ip: req.ip }); if (r.ok) sent++; else skipped.push(v.label); }
   req.flash(skipped.length ? 'error' : 'success', `${sent} request(s) processed.${skipped.length ? ` No email address for: ${skipped.join('; ')}` : ''}`);
   res.redirect(`/admin/applications/${req.app_.id}?tab=verification`);
 });
@@ -342,9 +316,163 @@ router.post('/applications/:id/delete', requireSuper, loadApp, (req, res) => {
   res.redirect('/admin/applications');
 });
 
+// ---------------- Contracts ----------------
+const contractFields = (body) => Object.fromEntries(contracts.EDITABLE.map((f) => [f.key, String(body[f.key] || '').trim()]));
+
+async function emailContract(app, contract, user) {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(app.user_id);
+  const tpl = settings.get('email_contract');
+  const v = contracts.vars(app, contract.fields);
+  const link = `${config.baseUrl}/login?next=${encodeURIComponent('/apply/contract')}`;
+  return mailer.send({
+    to: u.email, applicationId: app.id, title: '',
+    subject: settings.merge(tpl.subject, v),
+    html: mailer.renderTemplate(tpl.body, v, { contract_link: { url: link, label: 'Review and sign my contract' } }),
+  });
+}
+
+router.get('/applications/:id/contract/preview.pdf', loadApp, async (req, res) => {
+  const app = req.app_;
+  const { fields, body } = contracts.prepare(app, { ...contracts.autoFields(app), ...contractFields(req.query) });
+  const buf = await contracts.pdf({ app, body, fields, issuerSignature: settings.get('contract_defaults').issuer_signature, draft: true });
+  res.set({ 'Content-Type': 'application/pdf', 'Cache-Control': 'private, no-store', 'Content-Disposition': `inline; filename="Contract_preview_${app.ref}.pdf"` });
+  res.send(buf);
+});
+
+router.post('/applications/:id/contract/send', loadApp, async (req, res) => {
+  const app = req.app_;
+  const back = `/admin/applications/${app.id}?tab=contract`;
+  if (app.status === 'in_progress') { req.flash('error', 'The officer must submit their application before a contract can be sent.'); return res.redirect(back); }
+  const f = contractFields(req.body);
+  const missing = contracts.EDITABLE.filter((x) => x.main && !f[x.key]).map((x) => x.label);
+  if (missing.length) { req.flash('error', `Please enter: ${missing.join(', ')}.`); return res.redirect(back); }
+  const { body } = contracts.prepare(app, f);
+  const left = contracts.unresolved(body);
+  if (left.length) { req.flash('error', `The contract template has unknown fields: ${left.join(', ')}. Fix them in Settings → Contract template.`); return res.redirect(back); }
+  const c = contracts.create(app, f, req.user);
+  const r = await emailContract(app, c, req.user);
+  audit({ applicationId: app.id, user: req.user, action: 'contract_sent', detail: `Contract #${c.id} – ${f.job_title}, ${f.pay_rate}/hr, start ${f.start_date || 'TBC'} (email ${r.status})`, ip: req.ip });
+  req.flash('success', r.status === 'sent' ? 'Contract sent – the officer has been emailed a link to sign it.' : 'Contract created. Email is not configured yet, so the message is in the Outbox – the officer can also sign it from their account.');
+  res.redirect(back);
+});
+
+router.post('/applications/:id/contract/:cid/resend', loadApp, async (req, res) => {
+  const c = contracts.list(req.app_.id).find((x) => x.id === Number(req.params.cid) && x.status === 'sent');
+  if (c) {
+    const r = await emailContract(req.app_, c, req.user);
+    audit({ applicationId: req.app_.id, user: req.user, action: 'contract_reminder_sent', detail: `Contract #${c.id} (email ${r.status})`, ip: req.ip });
+    req.flash('success', 'Reminder sent to the officer.');
+  }
+  res.redirect(`/admin/applications/${req.app_.id}?tab=contract`);
+});
+
+router.post('/applications/:id/contract/:cid/void', loadApp, (req, res) => {
+  const c = contracts.list(req.app_.id).find((x) => x.id === Number(req.params.cid) && x.status !== 'void');
+  if (c) {
+    const reason = String(req.body.reason || '').slice(0, 300) || 'Withdrawn';
+    db.prepare("UPDATE contracts SET status = 'void', voided_by = ?, voided_at = datetime('now'), void_reason = ? WHERE id = ?").run(req.user.id, reason, c.id);
+    audit({ applicationId: req.app_.id, user: req.user, action: 'contract_voided', detail: `Contract #${c.id}: ${reason}`, ip: req.ip });
+    req.flash('success', `Contract #${c.id} withdrawn.`);
+  }
+  res.redirect(`/admin/applications/${req.app_.id}?tab=contract`);
+});
+
+router.get('/applications/:id/contract/:cid.pdf', loadApp, async (req, res, next) => {
+  const c = contracts.list(req.app_.id).find((x) => x.id === Number(req.params.cid));
+  if (!c) return next();
+  audit({ applicationId: req.app_.id, user: req.user, action: 'contract_downloaded', detail: `Contract #${c.id}`, ip: req.ip });
+  res.set({ 'Content-Type': 'application/pdf', 'Cache-Control': 'private, no-store', 'Content-Disposition': `inline; filename="${contracts.filename(req.app_, c)}"` });
+  res.send(await contracts.pdfFor(req.app_, c));
+});
+
+// ---------------- Settings (super admin) ----------------
+router.get('/settings', requireSuper, (req, res) => {
+  const d = settings.get('contract_defaults');
+  res.render('admin/settings', {
+    title: 'Settings', tab: String(req.query.tab || 'contract'),
+    defaults: d, template: settings.get('contract_template'), workflow: settings.get('workflow'),
+    emails: { email_reference: settings.get('email_reference'), email_verification: settings.get('email_verification'), email_contract: settings.get('email_contract') },
+    meta: Object.fromEntries(['contract_defaults', 'contract_template', 'email_reference', 'email_verification', 'email_contract', 'workflow'].map((k) => [k, settings.meta(k)])),
+    EDITABLE: contracts.EDITABLE, smtp: { configured: mailer.smtpConfigured, from: config.smtp.from },
+  });
+});
+
+const IMG_DATA_URL = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/;
+router.post('/settings/contract-defaults', requireSuper, (req, res) => {
+  const cur = settings.get('contract_defaults');
+  const next = { ...cur };
+  for (const k of ['job_title', 'pay_rate', 'pay_effective_from', 'probation', 'issued_by']) next[k] = String(req.body[k] || '').trim().slice(0, 200);
+  const sig = req.body.issuer_signature_upload || req.body.issuer_signature;
+  if (req.body.remove_signature === 'yes') next.issuer_signature = null;
+  else if (sig && IMG_DATA_URL.test(sig) && sig.length < 700000) next.issuer_signature = sig;
+  settings.set('contract_defaults', next, req.user.id);
+  audit({ user: req.user, action: 'settings_changed', detail: 'Contract defaults', ip: req.ip });
+  req.flash('success', 'Contract defaults saved.');
+  res.redirect('/admin/settings?tab=contract');
+});
+
+router.post('/settings/contract-template', requireSuper, (req, res) => {
+  if (req.body.reset === 'yes') settings.reset('contract_template');
+  else {
+    const text = String(req.body.template || '').replace(/\r/g, '');
+    if (text.trim().length < 50) { req.flash('error', 'The contract template looks empty – nothing was saved.'); return res.redirect('/admin/settings?tab=template'); }
+    settings.set('contract_template', text.slice(0, 200000), req.user.id);
+  }
+  audit({ user: req.user, action: 'settings_changed', detail: req.body.reset === 'yes' ? 'Contract template reset to original' : 'Contract template edited', ip: req.ip });
+  req.flash('success', req.body.reset === 'yes' ? 'Contract template restored to the original.' : 'Contract template saved. New contracts will use it; contracts already sent are unchanged.');
+  res.redirect('/admin/settings?tab=template');
+});
+
+router.post('/settings/contract-template/preview.pdf', requireSuper, async (req, res) => {
+  const text = String(req.body.template || settings.get('contract_template'));
+  const sample = { ref: 'SP-SAMPLE', user_id: req.user.id };
+  const fields = { job_title: 'Security Officer', pay_rate: '£12.71', start_date: contracts.ukDate(), pay_effective_from: '01/04/2026', date: contracts.ukDate(), employee_ref: 'SP-SAMPLE', probation: 'six month', issued_by: settings.get('contract_defaults').issued_by };
+  const v = { 'employee.full_name': 'Jane Sample', 'employee.first_name': 'Jane', 'employee.address': '1 Example Road, London, E1 1AA', 'company.legal_name': config.company.legalName, 'company.name': config.company.name, 'company.address': config.company.address.join(', '), 'company.email': config.company.email, 'company.phone': config.company.phone };
+  for (const [k, val] of Object.entries(fields)) v[`contract.${k}`] = val;
+  const body = settings.merge(text, v);
+  const buf = await contracts.pdf({ app: { ...sample, data_enc: null }, body, fields, issuerSignature: settings.get('contract_defaults').issuer_signature, draft: true, employeeName: 'Jane Sample' });
+  res.set({ 'Content-Type': 'application/pdf', 'Cache-Control': 'private, no-store', 'Content-Disposition': 'inline; filename="Contract_template_preview.pdf"' });
+  res.send(buf);
+});
+
+router.post('/settings/emails/:key', requireSuper, (req, res) => {
+  const key = req.params.key;
+  if (!['email_reference', 'email_verification', 'email_contract'].includes(key)) return res.redirect('/admin/settings?tab=emails');
+  if (req.body.reset === 'yes') settings.reset(key);
+  else settings.set(key, { subject: String(req.body.subject || '').slice(0, 300), body: String(req.body.body || '').replace(/\r/g, '').slice(0, 20000) }, req.user.id);
+  audit({ user: req.user, action: 'settings_changed', detail: `${key}${req.body.reset === 'yes' ? ' reset' : ''}`, ip: req.ip });
+  req.flash('success', 'Email template saved.');
+  res.redirect(`/admin/settings?tab=emails#${key}`);
+});
+
+router.post('/settings/workflow', requireSuper, (req, res) => {
+  settings.set('workflow', { auto_send_requests: req.body.auto_send_requests === 'yes' }, req.user.id);
+  audit({ user: req.user, action: 'settings_changed', detail: `Auto-send reference requests: ${req.body.auto_send_requests === 'yes' ? 'on' : 'off'}`, ip: req.ip });
+  req.flash('success', 'Workflow saved.');
+  res.redirect('/admin/settings?tab=workflow');
+});
+
+router.post('/settings/test-email', requireSuper, async (req, res) => {
+  const v = await mailer.verifyConnection();
+  if (!v.ok) { req.flash('error', `Could not connect to the mail server: ${v.error}`); return res.redirect('/admin/settings?tab=workflow'); }
+  const r = await mailer.send({ to: req.user.email, subject: 'Test email from the onboarding portal', title: 'Email is working',
+    html: `<p>This test was sent from ${mailer.esc(config.smtp.from)} by the ${mailer.esc(config.company.name)} onboarding portal. Reference requests and contracts will be sent from this address.</p>` });
+  audit({ user: req.user, action: 'test_email', detail: `${req.user.email}: ${r.status}${r.error ? ` – ${r.error}` : ''}`, ip: req.ip });
+  req.flash(r.status === 'sent' ? 'success' : 'error', r.status === 'sent' ? `Test email sent to ${req.user.email} – check the inbox (and spam folder).` : `Sending failed: ${r.error}`);
+  res.redirect('/admin/settings?tab=workflow');
+});
+
 // ---------------- Outbox ----------------
 router.get('/emails', (req, res) => {
   res.render('admin/emails', { title: 'Email outbox', emails: db.prepare('SELECT e.id, e.to_addr, e.subject, e.status, e.error, e.created_at, a.ref, a.id AS app_id FROM emails e LEFT JOIN applications a ON a.id = e.application_id ORDER BY e.id DESC LIMIT 300').all() });
+});
+
+router.post('/emails/:id/send', async (req, res) => {
+  const r = await mailer.resend(Number(req.params.id));
+  const e = db.prepare('SELECT application_id, to_addr, subject FROM emails WHERE id = ?').get(req.params.id) || {};
+  audit({ applicationId: e.application_id || null, user: req.user, action: 'email_resent', detail: `${e.to_addr}: ${e.subject} (${r.status})`, ip: req.ip });
+  req.flash(r.status === 'sent' ? 'success' : 'error', r.status === 'sent' ? `Sent to ${e.to_addr}.` : `Not sent: ${r.error}`);
+  res.redirect(req.get('referer') || '/admin/emails');
 });
 
 router.get('/emails/:id', (req, res, next) => {

@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/app.css?v=5">
+<link rel="stylesheet" href="/css/app.css?v=6">
 <meta name="csrf-token" content="<%= csrf %>">
 </head>
 <body>
@@ -32,6 +32,7 @@
       <% if (user.role === 'applicant') { %>
         <a href="/apply" class="<%= path === '/apply' || path === '/' ? 'on' : '' %>">My onboarding</a>
         <a href="/apply/review" class="<%= path.startsWith('/apply/review') ? 'on' : '' %>">Review &amp; submit</a>
+        <% if (locals.hasContract) { %><a href="/apply/contract" class="<%= path.startsWith('/apply/contract') ? 'on' : '' %>">My contract</a><% } %>
         <a href="/apply/account" class="<%= path.startsWith('/apply/account') ? 'on' : '' %>">Account</a>
       <% } else { %>
         <a href="/admin" class="<%= path === '/admin' || path === '/admin/' ? 'on' : '' %>">Dashboard</a>
@@ -41,6 +42,7 @@
         <% if (user.role === 'superadmin') { %>
         <a href="/admin/users" class="<%= path.startsWith('/admin/users') ? 'on' : '' %>">Staff</a>
         <a href="/admin/audit" class="<%= path.startsWith('/admin/audit') ? 'on' : '' %>">Audit</a>
+        <a href="/admin/settings" class="<%= path.startsWith('/admin/settings') ? 'on' : '' %>">Settings</a>
         <% } %>
         <a href="/admin/account" class="<%= path.startsWith('/admin/account') ? 'on' : '' %>">Account</a>
       <% } %>

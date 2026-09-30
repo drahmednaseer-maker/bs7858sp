@@ -1,0 +1,43 @@
+<%- include('../partials/header') %>
+<div class="wrap narrow" style="max-width:920px">
+  <%- include('../partials/flash') %>
+  <div class="page-head">
+    <div><p class="eyebrow mb-0"><%= application.ref %></p><h1>Your contract of employment</h1>
+      <p><%= c.fields.job_title %> · <%= c.fields.pay_rate %> an hour<%= c.fields.start_date ? ' · starting ' + c.fields.start_date : '' %></p></div>
+    <a class="btn" href="/apply/contract.pdf" target="_blank">Download PDF</a>
+  </div>
+
+  <% if (c.status === 'signed') { %>
+    <div class="alert alert-success"><strong>Signed – thank you</strong>You signed this contract on <%= fmtDateTime(c.signed_at) %>. A copy was emailed to you, and you can download it above at any time.</div>
+  <% } else { %>
+    <div class="alert alert-info"><strong>Please read your contract carefully, then sign at the bottom.</strong>If anything looks wrong, don't sign – reply to the email we sent you or contact <%= company.email %>.</div>
+  <% } %>
+
+  <div class="contract-doc">
+    <img class="logo" src="/img/sp-group-logo.png" alt="Security Projects Group">
+    <%- bodyHtml %>
+    <div class="grid grid-2 mt">
+      <div class="auto-box"><div class="lbl small">Issued by (for Employer)</div>
+        <% if (c.issuer_signature) { %><img src="<%= c.issuer_signature %>" alt="Employer signature" style="max-height:60px;display:block;margin:6px 0"><% } %>
+        <div class="small"><%= c.fields.issued_by || '—' %> · <%= company.legalName %><br>Date: <%= c.fields.date %></div></div>
+      <div class="auto-box"><div class="lbl small">Employee</div>
+        <% if (c.status === 'signed') { %><img src="<%= c.signature.image %>" alt="Your signature" style="max-height:60px;display:block;margin:6px 0"><div class="small"><%= c.signature.typed_name %> · Ref <%= c.fields.employee_ref %><br>Signed <%= fmtDateTime(c.signed_at) %></div>
+        <% } else { %><div class="small muted" style="margin-top:6px"><%= employeeName %> · Ref <%= c.fields.employee_ref %><br>Awaiting your signature</div><% } %></div>
+    </div>
+  </div>
+
+  <% if (c.status === 'sent') { %>
+    <form class="card card-pad mt" method="post" action="/apply/contract/sign" data-confirm="Sign this contract now? This is legally binding.">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <h2>Sign your contract</h2>
+      <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+      <div class="form-grid">
+        <div class="fld w-half"><label for="typed_name">Type your full name</label><input id="typed_name" type="text" name="typed_name" autocomplete="name" autocapitalize="words" value="<%= employeeName %>"></div>
+        <div class="fld"><div class="lbl">Your signature</div><div data-sig data-input="signature"></div></div>
+        <div class="fld"><label class="choice confirm"><input type="checkbox" name="agree" value="yes"><span>I have read and understood this contract of employment and agree to its terms. I understand that my electronic signature is legally binding, in the same way as a handwritten signature.</span></label></div>
+        <div class="fld"><button class="btn btn-primary btn-lg">Sign contract</button></div>
+      </div>
+    </form>
+  <% } %>
+</div>
+<%- include('../partials/footer') %>

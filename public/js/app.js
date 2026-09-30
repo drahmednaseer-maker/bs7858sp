@@ -14,6 +14,9 @@
   const navSel = $('[data-nav-select]');
   if (navSel) navSel.addEventListener('change', () => { location.href = navSel.value; });
   document.addEventListener('submit', (e) => {
+    $$('[data-sig]', e.target).forEach((h) => { if (h._acceptPending) h._acceptPending(); });
+  }, true);
+  document.addEventListener('submit', (e) => {
     const msg = e.target.getAttribute('data-confirm');
     if (msg && !confirm(msg)) e.preventDefault();
   });
@@ -120,6 +123,8 @@
       const end = () => { drawing = false; };
       canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end); canvas.addEventListener('pointerleave', end);
       $('[data-clear]', host).addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width, canvas.height); has = false; hint.style.display = ''; });
+      // Count a drawn-but-not-confirmed signature when the form is saved/submitted.
+      host._acceptPending = () => { if (has && !host._sig) { set({ image: trim(canvas) }); showDone(); } };
       $('[data-accept]', host).addEventListener('click', () => {
         if (!has) { alert('Please draw your signature first.'); return; }
         // Crop to content on a white background for a clean PNG.
@@ -229,6 +234,33 @@
     });
   }
   $$('[data-files]').forEach(initFiles);
+
+  // ---------- Settings: template field chips, confirm buttons, signature image upload ----------
+  let lastTpl = null;
+  document.addEventListener('focusin', (e) => { if (e.target.matches('[data-tpl-text]')) lastTpl = e.target; });
+  $$('[data-insert]').forEach((b) => b.addEventListener('click', () => {
+    const ta = (b.closest('form') && $('[data-tpl-text]', b.closest('form'))) || lastTpl || $('[data-tpl-text]');
+    if (!ta) return;
+    const s = ta.selectionStart ?? ta.value.length; const e2 = ta.selectionEnd ?? s;
+    ta.value = ta.value.slice(0, s) + b.dataset.insert + ta.value.slice(e2);
+    ta.focus(); ta.selectionStart = ta.selectionEnd = s + b.dataset.insert.length;
+  }));
+  $$('[data-confirm-click]').forEach((b) => b.addEventListener('click', (e) => { if (!confirm(b.dataset.confirmClick)) e.preventDefault(); }));
+  $$('[data-sig-upload]').forEach((input) => input.addEventListener('change', async () => {
+    const f = input.files[0]; input.value = '';
+    if (!f) return;
+    try {
+      // Downscale and flatten onto white so the signature stays small and prints cleanly.
+      const bmp = await createImageBitmap(f);
+      const s = Math.min(1, 700 / bmp.width, 240 / bmp.height);
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+      const url = c.toDataURL('image/png');
+      const form = input.closest('form');
+      $('[data-sig-upload-value]', form).value = url;
+      const pv = $('[data-sig-upload-preview]', form); pv.src = url; pv.classList.remove('hidden');
+    } catch (err) { alert('That image could not be read – please use a PNG or JPG.'); }
+  }));
 
   // ---------- Screening check evidence: paste / drop / browse ----------
   // Staff screenshot a result (Win+Shift+S / PrtScn), click the check, press Ctrl+V. Files are previewed
@@ -510,6 +542,7 @@
 
   $$('[data-save]').forEach((btn) => btn.addEventListener('click', async () => {
     clearTimeout(timer);
+    $$('[data-sig]', form).forEach((h) => { if (h._acceptPending) h._acceptPending(); });
     const action = btn.dataset.save;
     const data = collect($('[data-scope]', form));
     $$('[data-save]').forEach((b) => { b.disabled = true; });

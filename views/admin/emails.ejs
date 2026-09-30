@@ -11,7 +11,8 @@
           <td><%= e.to_addr %></td>
           <td><a class="rowlink" href="/admin/emails/<%= e.id %>"><%= e.subject %></a></td>
           <td><% if (e.app_id) { %><a href="/admin/applications/<%= e.app_id %>"><%= e.ref %></a><% } %></td>
-          <td><span class="badge <%= e.status === 'sent' ? 'tone-good' : e.status === 'failed' ? 'tone-bad' : 'tone-warn' %>" title="<%= e.error || '' %>"><%= e.status %></span></td>
+          <td class="nowrap"><span class="badge <%= e.status === 'sent' ? 'tone-good' : e.status === 'failed' ? 'tone-bad' : 'tone-warn' %>" title="<%= e.error || '' %>"><%= e.status %></span>
+            <% if (e.status !== 'sent' && smtpConfigured) { %><form method="post" action="/admin/emails/<%= e.id %>/send" style="display:inline"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-sm btn-ghost">Send now</button></form><% } %></td>
         </tr>
       <% }) %>
       <% if (!emails.length) { %><tr><td colspan="5" class="muted">No emails yet.</td></tr><% } %>

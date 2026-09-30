@@ -2,7 +2,9 @@ const nodemailer = require('nodemailer');
 const config = require('./config');
 const { db } = require('./db');
 
-const transport = config.smtp.host
+// Only send once the server AND (if a username is set) its password are configured – otherwise
+// emails are kept in the Outbox rather than failing.
+const transport = config.smtp.host && (!config.smtp.user || config.smtp.pass)
   ? nodemailer.createTransport({
     host: config.smtp.host,
     port: config.smtp.port,
@@ -21,7 +23,7 @@ function layout(title, bodyHtml) {
 <tr><td style="background:#ffffff;padding:18px 28px;border-bottom:4px solid #0c2547">
   <img src="${config.baseUrl}/img/sp-logo-white.jpg" width="180" alt="${esc(c.name)}" style="display:block;height:auto"></td></tr>
 <tr><td style="padding:28px">
-  <h1 style="font-size:20px;margin:0 0 16px">${esc(title)}</h1>
+  ${title ? `<h1 style="font-size:20px;margin:0 0 16px">${esc(title)}</h1>` : ''}
   ${bodyHtml}
 </td></tr>
 <tr><td style="background:#f6f8fa;padding:16px 28px;font-size:12px;color:#5b6675">
@@ -31,13 +33,38 @@ function layout(title, bodyHtml) {
 </td></tr></table></td></tr></table></body></html>`;
 }
 
-async function send({ to, subject, title, html, applicationId = null }) {
-  const body = layout(title || subject, html);
+// Turn an admin-editable plain-text template into email HTML. A line containing only a {{…_link}}
+// placeholder becomes a button; "- " lines become a bulleted list; blank lines separate paragraphs.
+function renderTemplate(text, vars, buttons = {}) {
+  const { merge } = require('./settings');
+  const out = [];
+  for (const para of String(text || '').replace(/\r/g, '').split(/\n\s*\n/)) {
+    const lines = para.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    const btn = lines.length === 1 && lines[0].match(/^\{\{\s*(\w+_link)\s*\}\}$/);
+    if (btn && buttons[btn[1]]) {
+      const b = buttons[btn[1]];
+      out.push(`<p style="margin:20px 0"><a href="${esc(b.url)}" style="background:#0c2547;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:600">${esc(b.label)}</a></p>`);
+      continue;
+    }
+    const linkVars = Object.fromEntries(Object.entries(buttons).map(([k, b]) => [k, b.url]));
+    const all = { ...vars, ...linkVars };
+    if (lines.every((l) => /^[-•]\s+/.test(l))) {
+      out.push(`<ul style="margin:0 0 14px;padding-left:20px">${lines.map((l) => `<li style="margin-bottom:4px">${esc(merge(l.replace(/^[-•]\s+/, ''), all))}</li>`).join('')}</ul>`);
+    } else {
+      out.push(`<p style="margin:0 0 14px;line-height:1.55">${lines.map((l) => esc(merge(l, all))).join('<br>')}</p>`);
+    }
+  }
+  return out.join('\n');
+}
+
+async function send({ to, subject, title, html, applicationId = null, attachments = [] }) {
+  const body = layout(title === '' ? '' : (title || subject), html); // title '' = letter-style email with no heading
   let status = 'queued';
   let error = null;
   if (transport) {
     try {
-      await transport.sendMail({ from: config.smtp.from, to, subject, html: body, replyTo: config.company.email });
+      await transport.sendMail({ from: config.smtp.from, to, subject, html: body, replyTo: config.company.email, attachments });
       status = 'sent';
     } catch (e) {
       status = 'failed';
@@ -52,4 +79,24 @@ async function send({ to, subject, title, html, applicationId = null }) {
   return { id: Number(r.lastInsertRowid), status, error };
 }
 
-module.exports = { send, esc, smtpConfigured: !!transport };
+async function verifyConnection() {
+  if (!transport) return { ok: false, error: 'Email sending is not configured (SMTP_HOST / SMTP_USER / SMTP_PASS).' };
+  try { await transport.verify(); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
+}
+
+// Send an email that was stored in the Outbox (e.g. queued before email sending was set up).
+async function resend(id) {
+  const e = db.prepare('SELECT * FROM emails WHERE id = ?').get(id);
+  if (!e) return { status: 'failed', error: 'Not found' };
+  if (!transport) return { status: 'queued', error: 'Email sending is not configured.' };
+  try {
+    await transport.sendMail({ from: config.smtp.from, to: e.to_addr, subject: e.subject, html: e.body_html, replyTo: config.company.email });
+    db.prepare("UPDATE emails SET status = 'sent', error = NULL WHERE id = ?").run(id);
+    return { status: 'sent' };
+  } catch (err) {
+    db.prepare("UPDATE emails SET status = 'failed', error = ? WHERE id = ?").run(err.message, id);
+    return { status: 'failed', error: err.message };
+  }
+}
+
+module.exports = { send, resend, esc, renderTemplate, verifyConnection, smtpConfigured: !!transport };

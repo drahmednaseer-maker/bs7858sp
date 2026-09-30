@@ -19,32 +19,37 @@ function load(req, res, next) {
   next();
 }
 
+// Questions follow the company's standard reference letter, plus the BS 7858 suitability question.
+const RATING = ['Excellent', 'Good', 'Satisfactory', 'Poor', 'Unable to comment'];
+const LETTER_QUESTIONS = [
+  { key: 'dates_from', label: 'Dates of employment – from (month & year)', type: 'month', required: true },
+  { key: 'dates_to', label: 'Dates of employment – to (month & year, blank if current)', type: 'month' },
+  { key: 'job_title', label: 'Job title / position held', required: true },
+  { key: 'duties', label: 'Main duties and responsibilities', type: 'textarea', required: true },
+  { key: 'reliability', label: 'Reliability and attendance', type: 'select', options: RATING, required: true },
+  { key: 'conduct', label: 'Conduct and professionalism', type: 'select', options: RATING, required: true },
+  { key: 'security_quals', label: 'Any relevant security qualifications or experience', type: 'textarea' },
+  { key: 'suitable', label: 'Would you consider the individual suitable for future employment?', type: 'select', options: ['Yes', 'No', 'Company policy not to say'], required: true },
+  { key: 'concerns', label: 'Are you aware of any reason why this person should not be employed in a position of trust in a secure environment?', type: 'select', options: ['No', 'Yes'], required: true },
+  { key: 'comments', label: 'Any other comments', type: 'textarea' },
+];
 const FIELDS = {
   history: [
     { key: 'respondent_name', label: 'Your name', required: true },
     { key: 'respondent_position', label: 'Your position', required: true },
     { key: 'organisation', label: 'Organisation', required: true },
     { key: 'respondent_phone', label: 'Telephone' },
-    { key: 'dates_from', label: 'Employed / attended from (month & year)', type: 'month', required: true },
-    { key: 'dates_to', label: 'Employed / attended to (month & year, blank if current)', type: 'month' },
-    { key: 'job_title', label: 'Job title / course' },
+    ...LETTER_QUESTIONS.slice(0, 4),
     { key: 'reason_leaving', label: 'Reason for leaving' },
-    { key: 'reemploy', label: 'Would you re-employ this person?', type: 'select', options: ['Yes', 'No', 'Company policy not to say', 'Not applicable'] },
-    { key: 'concerns', label: 'Are you aware of any reason why this person should not be employed in a position of trust in a secure environment?', type: 'select', options: ['No', 'Yes'], required: true },
-    { key: 'comments', label: 'Comments (honesty, reliability, attendance, conduct)', type: 'textarea' },
+    ...LETTER_QUESTIONS.slice(4),
   ],
   reference: [
     { key: 'respondent_name', label: 'Your name', required: true },
     { key: 'respondent_position', label: 'Your position / occupation', required: true },
-    { key: 'organisation', label: 'Organisation (if applicable)' },
+    { key: 'organisation', label: 'Organisation', required: true },
     { key: 'respondent_phone', label: 'Telephone' },
-    { key: 'relationship', label: 'How do you know the applicant?', required: true },
-    { key: 'known_years', label: 'How long have you known them (years)?', required: true },
-    { key: 'dates_from', label: 'If employed by you: from (month & year)', type: 'month' },
-    { key: 'dates_to', label: 'If employed by you: to (month & year)', type: 'month' },
-    { key: 'honesty', label: 'Would you consider them honest and trustworthy?', type: 'select', options: ['Yes', 'No', 'Unable to comment'], required: true },
-    { key: 'concerns', label: 'Are you aware of any reason why this person should not be employed in a position of trust in a secure environment?', type: 'select', options: ['No', 'Yes'], required: true },
-    { key: 'comments', label: 'Comments', type: 'textarea' },
+    { key: 'relationship', label: 'Your relationship to the applicant (e.g. line manager)', required: true },
+    ...LETTER_QUESTIONS,
   ],
 };
 
@@ -86,5 +91,10 @@ router.post('/:token', load, async (req, res) => {
   }).catch(() => {});
   res.render('referee', { title: 'Thank you', v, fields, name: apps.applicantName(req.app_), values, errors: {}, done: true });
 });
+
+// Human-readable question labels for displaying responses (admin screen + PDF).
+const LABELS = { declaration: 'Declaration', respondent_ip: 'Respondent IP address' };
+for (const list of Object.values(FIELDS)) for (const f of list) LABELS[f.key] = LABELS[f.key] || f.label;
+router.labelFor = (k) => LABELS[k] || k.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
 module.exports = router;

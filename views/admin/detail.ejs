@@ -4,7 +4,7 @@
   const photo = docs.find((x) => x.field_key === 'documents:photo_files' && /image\/(jpeg|png|webp)/.test(x.mime));
   const initials = (app.name || '?').split(' ').map((s) => s[0]).slice(0, 2).join('');
   const base = '/admin/applications/' + app.id;
-  const tabs = [['overview', 'Overview'], ['application', 'Application forms'], ['documents', 'Documents', docs.length], ['checks', 'Screening checks', checks.filter((c) => c.status === 'pass' || c.status === 'na').length + '/' + checks.length], ['verification', 'History & references', verifs.length], ['employer', 'Employer sections'], ['decision', 'Authorisation'], ['reports', 'Reports', reports.length], ['audit', 'Audit & emails']];
+  const tabs = [['overview', 'Overview'], ['application', 'Application forms'], ['documents', 'Documents', docs.length], ['checks', 'Screening checks', checks.filter((c) => c.status === 'pass' || c.status === 'na').length + '/' + checks.length], ['verification', 'History & references', verifs.length], ['employer', 'Employer sections'], ['decision', 'Authorisation'], ['contract', 'Contract', contracts.filter((x) => x.status !== 'void').length ? (contracts.find((x) => x.status !== 'void').status === 'signed' ? 'Signed' : 'Sent') : undefined], ['reports', 'Reports', reports.length], ['audit', 'Audit & emails']];
   const vTone = { not_sent: 'neutral', sent: 'info', chased: 'warn', received: 'info', verified: 'good', unable: 'bad' };
   const cTone = { pending: 'neutral', pass: 'good', fail: 'bad', refer: 'warn', na: 'neutral' };
   const cLabel = { pending: 'Pending', pass: 'Pass', fail: 'Fail', refer: 'Refer', na: 'N/A' };
@@ -303,7 +303,7 @@
                   <div class="card mt" style="background:var(--surface-2)"><div class="card-body">
                     <b>Response received <%= fmtDateTime(v.responded_at) %></b>
                     <div class="kv small mt">
-                      <% Object.entries(v.response).forEach(([k, val]) => { %><div><%= k.replace(/_/g, ' ').replace(/^\w/, (x) => x.toUpperCase()) %></div><div class="<%= k === 'concerns' && val === 'Yes' ? 'flag' : '' %>" style="white-space:pre-wrap"><%= val || '—' %></div><% }) %>
+                      <% Object.entries(v.response).forEach(([k, val]) => { %><div><%= refLabel(k) %></div><div class="<%= k === 'concerns' && val === 'Yes' ? 'flag' : '' %>" style="white-space:pre-wrap"><%= val || '—' %></div><% }) %>
                     </div>
                   </div></div>
                 <% } %>
@@ -407,6 +407,86 @@
             <div class="fld"><label class="choice confirm"><input type="checkbox" name="notify" value="yes" checked><span>Email the applicant with the outcome</span></label></div>
             <div class="fld"><button class="btn btn-primary">Record decision</button></div>
           </form>
+        </div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'contract') { %>
+    <%
+      const cur = contracts.find((x) => x.status !== 'void');
+      const passed = checks.filter((c) => c.status === 'pass' || c.status === 'na').length;
+      const cStatus = { sent: ['Awaiting signature', 'warn'], signed: ['Signed', 'good'], void: ['Withdrawn', 'neutral'] };
+      const autoShown = [['Employee', app.name], ['Contract date', contractAuto.date], ['Employee reference', contractAuto.employee_ref], ['Start date', contractAuto.start_date || 'Not set – add below if known'], ['Rate effective from', contractAuto.pay_effective_from], ['Issued by', contractAuto.issued_by || '—']];
+    %>
+    <div class="split">
+      <div>
+        <% if (cur && cur.status === 'signed') { %>
+          <div class="alert alert-success"><strong>Contract signed</strong><%= cur.signature.typed_name %> signed contract #<%= cur.id %> on <%= fmtDateTime(cur.signed_at) %>. <a href="<%= base %>/contract/<%= cur.id %>.pdf" target="_blank">Open the signed contract (PDF)</a></div>
+        <% } else if (cur) { %>
+          <div class="alert alert-warn"><strong>Waiting for the officer to sign</strong>Contract #<%= cur.id %> was sent <%= fmtDateTime(cur.sent_at) %><%= cur.viewed_at ? ' and opened ' + fmtDateTime(cur.viewed_at) : ' – not opened yet' %>. Sending a new contract below replaces it.</div>
+        <% } %>
+        <div class="card">
+          <div class="card-head"><h3 style="flex:1"><%= cur ? 'Send a new contract' : 'Send contract' %></h3><span class="badge plain <%= passed === checks.length ? 'tone-good' : 'tone-warn' %>"><%= passed %>/<%= checks.length %> checks passed</span></div>
+          <div class="card-body">
+            <% if (raw.status === 'in_progress') { %>
+              <div class="alert alert-info mb-0">The officer hasn't submitted their application yet. You can send the contract once they have, and you've checked their documents.</div>
+            <% } else { %>
+              <p class="small muted">Send this once you've checked the officer's documents. Their details and today's date are filled in automatically – just confirm the <b>position</b> and <b>rate</b>.</p>
+              <% if (!contractHasSig) { %><div class="alert alert-warn small">No employer signature is set up yet, so contracts will show "Issued by <%= contractAuto.issued_by || '…' %>" without a signature image. <% if (user.role === 'superadmin') { %><a href="/admin/settings?tab=contract">Add it in Settings</a>.<% } %></div><% } %>
+              <form method="post" action="<%= base %>/contract/send" class="form-grid" data-confirm="Send this contract to <%= app.name %> (<%= app.email %>) for e-signature?">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <% CONTRACT_FIELDS.filter((f) => f.main).forEach((f) => { %>
+                  <div class="fld w-half"><label for="c-<%= f.key %>"><%= f.label %><span class="req">*</span></label><input id="c-<%= f.key %>" type="text" name="<%= f.key %>" value="<%= contractAuto[f.key] %>" placeholder="<%= f.placeholder || '' %>" required></div>
+                <% }) %>
+                <div class="fld">
+                  <div class="auto-box">
+                    <div class="lbl small" style="margin-bottom:6px">Filled in automatically</div>
+                    <div class="kv small"><% autoShown.forEach(([l, v]) => { %><div><%= l %></div><div><%= v %></div><% }) %></div>
+                    <details class="mt">
+                      <summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Change start date, dates or other details</summary>
+                      <div class="form-grid mt">
+                        <% CONTRACT_FIELDS.filter((f) => !f.main).forEach((f) => { %>
+                          <div class="fld w-half"><label for="c-<%= f.key %>"><%= f.label %></label><input id="c-<%= f.key %>" type="text" name="<%= f.key %>" value="<%= contractAuto[f.key] %>" placeholder="<%= f.key.includes('date') || f.key === 'pay_effective_from' ? 'DD/MM/YYYY' : '' %>"></div>
+                        <% }) %>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+                <div class="fld btn-row">
+                  <button class="btn" formaction="<%= base %>/contract/preview.pdf" formmethod="get" formtarget="_blank" formnovalidate>Preview contract (PDF)</button>
+                  <button class="btn btn-primary">Send contract to officer for e-signature</button>
+                </div>
+              </form>
+            <% } %>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-head"><h3>Contract history</h3></div>
+          <div class="card-body">
+            <% if (!contracts.length) { %><p class="muted small mb-0">No contracts sent yet.</p><% } %>
+            <ul class="log">
+              <% contracts.forEach((c) => { const st = cStatus[c.status]; %>
+                <li style="flex-direction:column;gap:6px">
+                  <div class="btn-row" style="justify-content:space-between"><b>Contract #<%= c.id %></b><span class="badge tone-<%= st[1] %>"><%= st[0] %></span></div>
+                  <div class="small"><%= c.fields.job_title %> · <%= c.fields.pay_rate %>/hr · start <%= c.fields.start_date || 'TBC' %></div>
+                  <div class="small muted">Sent <%= fmtDateTime(c.sent_at) %> by <%= c.sender || '—' %><%= c.viewed_at ? ' · opened ' + fmtDateTime(c.viewed_at) : '' %></div>
+                  <% if (c.status === 'signed') { %><div class="small" style="color:var(--good)">Signed <%= fmtDateTime(c.signed_at) %> by <%= c.signature.typed_name %> · IP <%= c.signature.ip %></div><% } %>
+                  <% if (c.status === 'void') { %><div class="small muted">Withdrawn <%= fmtDateTime(c.voided_at) %><%= c.voider ? ' by ' + c.voider : '' %> – <%= c.void_reason %></div><% } %>
+                  <div class="btn-row">
+                    <a class="btn btn-sm" href="<%= base %>/contract/<%= c.id %>.pdf" target="_blank"><%= c.status === 'signed' ? 'Signed PDF' : 'View PDF' %></a>
+                    <% if (c.status === 'sent') { %>
+                      <form method="post" action="<%= base %>/contract/<%= c.id %>/resend"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-sm">Send reminder</button></form>
+                    <% } %>
+                    <% if (c.status !== 'void') { %>
+                      <form method="post" action="<%= base %>/contract/<%= c.id %>/void" data-confirm="Withdraw contract #<%= c.id %>?<%= c.status === 'signed' ? ' It has already been signed.' : '' %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="reason" value="Withdrawn by staff"><button class="btn btn-sm btn-ghost" style="color:var(--bad)">Withdraw</button></form>
+                    <% } %>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

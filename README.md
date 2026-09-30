@@ -29,7 +29,16 @@ Online onboarding and security screening for security officers, built around **B
 - A documents register (copy / original / N/A), employer health comments, countersignature of the 48-hour opt-out, and a bank-details "checked by" record
 - Authorisation of a Conditional, Confirmed or Declined decision, with signature and start date
 - **A PDF screening file** that mirrors the company's BS 7858 screening record. It includes the cover page, verification log, checks, authorisation, all nine forms with e-signatures (with time and IP), ID images and the audit trail. A snapshot is saved automatically on submission and on every decision.
-- An email outbox, staff user management, the audit log, and aggregated diversity statistics
+- **Contracts of employment.** Once documents are checked, staff open the officer's Contract tab. Name, reference and date are filled in automatically; staff confirm the position and rate, preview the PDF and send it. The officer signs on their phone or computer, and the signed PDF is emailed to both the officer and recruitment.
+- **Settings** (super admin):
+  - the contract wording (editable template with automatic fields) and its default values
+  - the employer's signature
+  - the reference request, verification and contract emails
+  - an option to send reference requests automatically when an officer submits
+  - a test email button
+- An email outbox (with "Send now" for anything queued), staff user management, the audit log, and aggregated diversity statistics
+
+**Email (Google Workspace):** set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_SECURE=true`, `SMTP_USER=recruitment@securityprojectsltd.co.uk`, `SMTP_FROM` and `SMTP_PASS`. `SMTP_PASS` is a Google App Password for that mailbox, which requires 2-Step Verification. Until `SMTP_PASS` is set, emails are kept in the Outbox.
 
 **Security**
 - All form data and uploaded files are encrypted at rest (AES-256-GCM)

@@ -1,0 +1,135 @@
+<%- include('../partials/header') %>
+<%
+  const tabs = [['contract', 'Contract defaults'], ['template', 'Contract template'], ['emails', 'Email templates'], ['workflow', 'Workflow & email sending']];
+  const changed = (k) => meta[k] ? `Last changed ${fmtDateTime(meta[k].updated_at)}${meta[k].by_name ? ' by ' + meta[k].by_name : ''}` : 'Using the original wording';
+  const fieldsHelp = [
+    ['{{employee.full_name}}', 'Officer\'s full name (from their application)'],
+    ['{{employee.first_name}}', 'Officer\'s first name'],
+    ['{{employee.address}}', 'Officer\'s home address'],
+    ['{{contract.date}}', 'Contract date (today, unless changed)'],
+    ['{{contract.start_date}}', 'Start date'],
+    ['{{contract.job_title}}', 'Position / job title'],
+    ['{{contract.pay_rate}}', 'Hourly rate, e.g. £12.71'],
+    ['{{contract.pay_effective_from}}', 'Date the rate applies from'],
+    ['{{contract.employee_ref}}', 'Employee reference'],
+    ['{{contract.probation}}', 'Probationary period, e.g. six month'],
+    ['{{contract.issued_by}}', 'Name issuing the contract'],
+    ['{{company.legal_name}}', 'Security Projects UK Limited'],
+    ['{{company.address}}', 'Head office address'],
+  ];
+  const emailInfo = {
+    email_reference: ['Reference request', 'Sent to each referee the officer listed.', ['{{referee.name}}', '{{employee.full_name}}', '{{response_link}}', '{{company.email}}']],
+    email_verification: ['Employment / history verification', 'Sent to employers, colleges, Jobcentres etc. to confirm each period of the 5-year history.', ['{{referee.name}}', '{{employee.full_name}}', '{{period}}', '{{response_link}}', '{{company.email}}']],
+    email_contract: ['Contract ready to sign', 'Sent to the officer when you send their contract.', ['{{employee.first_name}}', '{{employee.full_name}}', '{{contract.job_title}}', '{{contract.start_date}}', '{{contract.pay_rate}}', '{{contract_link}}', '{{company.legal_name}}', '{{company.email}}']],
+  };
+%>
+<div class="wrap">
+  <%- include('../partials/flash') %>
+  <div class="page-head"><div><h1>Settings</h1><p>Contract wording, default values and the emails sent to referees and officers. Changes apply to anything sent from now on.</p></div></div>
+  <nav class="tabs"><% tabs.forEach(([k, l]) => { %><a href="?tab=<%= k %>" class="<%= tab === k ? 'on' : '' %>"><%= l %></a><% }) %></nav>
+
+  <% if (tab === 'contract') { %>
+    <div class="split">
+      <form class="card" method="post" action="/admin/settings/contract-defaults">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="card-head"><h3 style="flex:1">Default values</h3><span class="small muted"><%= changed('contract_defaults') %></span></div>
+        <div class="card-body form-grid">
+          <p class="small muted" style="flex:1 1 100%;margin:0">These pre-fill the contract form on each officer. Position and rate can still be changed per officer before sending.</p>
+          <div class="fld w-half"><label>Default position / job title</label><input type="text" name="job_title" value="<%= defaults.job_title %>"><div class="help" style="margin-top:4px">Used if the officer didn't state a position.</div></div>
+          <div class="fld w-half"><label>Default hourly rate</label><input type="text" name="pay_rate" value="<%= defaults.pay_rate %>" placeholder="£12.71"></div>
+          <div class="fld w-half"><label>Rate effective from</label><input type="text" name="pay_effective_from" value="<%= defaults.pay_effective_from %>" placeholder="01/04/2026"></div>
+          <div class="fld w-half"><label>Probationary period</label><input type="text" name="probation" value="<%= defaults.probation %>" placeholder="six month"></div>
+          <div class="fld w-half"><label>Issued by (for Employer)</label><input type="text" name="issued_by" value="<%= defaults.issued_by %>"></div>
+          <div class="fld">
+            <div class="lbl">Employer signature on contracts</div>
+            <% if (defaults.issuer_signature) { %>
+              <div class="sig-done" style="margin-bottom:10px"><img src="<%= defaults.issuer_signature %>" alt="Current employer signature"><div class="meta"><b>Current signature</b><br>Shown on every new contract.</div>
+                <label class="choice confirm" style="margin-left:auto"><input type="checkbox" name="remove_signature" value="yes"><span>Remove</span></label></div>
+            <% } %>
+            <p class="small muted">Upload a scan/photo of the signature (e.g. the one from the Word contract), or draw one below. It's stored securely in the system, not in the code.</p>
+            <label class="btn btn-sm">Upload signature image<input type="file" class="sr-only" accept="image/png,image/jpeg" data-sig-upload></label>
+            <input type="hidden" name="issuer_signature_upload" data-sig-upload-value>
+            <img alt="" data-sig-upload-preview class="hidden" style="display:block;max-height:80px;margin:10px 0;border:1px solid var(--line);border-radius:6px;background:#fff;padding:4px 10px">
+            <details class="mt"><summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">…or draw a signature</summary><div class="mt" data-sig data-input="issuer_signature"></div></details>
+          </div>
+          <div class="fld"><button class="btn btn-primary">Save defaults</button></div>
+        </div>
+      </form>
+      <div class="card">
+        <div class="card-head"><h3>How sending a contract works</h3></div>
+        <div class="card-body small">
+          <ol style="padding-left:1.2em;margin:0">
+            <li>Check the officer's documents in <b>Screening checks</b>.</li>
+            <li>Open the officer's <b>Contract</b> tab – name, reference and today's date are filled in automatically.</li>
+            <li>Confirm the <b>position</b> and <b>rate</b>, preview the PDF, then press <b>Send</b>.</li>
+            <li>The officer gets an email, signs on their phone or computer, and both of you receive the signed PDF.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'template') { %>
+    <div class="split">
+      <form class="card" method="post" action="/admin/settings/contract-template" id="tpl-form">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="card-head"><h3 style="flex:1">Contract of employment – variable hours</h3><span class="small muted"><%= changed('contract_template') %></span></div>
+        <div class="card-body">
+          <p class="small muted">Edit the wording below. Lines starting <code>#</code> are the title, <code>##</code> are section headings, <code>-</code> are bullet points, and <code>**Label:**</code> makes a bold label. Leave a blank line between paragraphs. The signature section is added automatically at the end.</p>
+          <textarea name="template" rows="28" spellcheck="true" style="font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.5" data-tpl-text><%= template %></textarea>
+          <div class="btn-row mt">
+            <button class="btn btn-primary">Save template</button>
+            <button class="btn" formaction="/admin/settings/contract-template/preview.pdf" formtarget="_blank">Preview as PDF</button>
+            <button class="btn btn-ghost" name="reset" value="yes" style="color:var(--bad)" data-confirm-click="Restore the original contract wording? Your edits will be lost.">Restore original</button>
+          </div>
+        </div>
+      </form>
+      <div class="card">
+        <div class="card-head"><h3>Fields filled in automatically</h3></div>
+        <div class="card-body">
+          <p class="small muted">Click to insert at the cursor. Keep the double curly brackets exactly as shown.</p>
+          <ul class="field-list">
+            <% fieldsHelp.forEach(([f, d]) => { %><li><button type="button" class="chip" data-insert="<%= f %>"><%= f %></button><span class="small muted"><%= d %></span></li><% }) %>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  <% } else if (tab === 'emails') { %>
+    <% Object.entries(emailInfo).forEach(([key, [title, desc, flds]]) => { const e = emails[key]; %>
+      <form class="card mt" method="post" action="/admin/settings/emails/<%= key %>" id="<%= key %>">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="card-head"><h3 style="flex:1"><%= title %></h3><span class="small muted"><%= changed(key) %></span></div>
+        <div class="card-body form-grid">
+          <p class="small muted" style="flex:1 1 100%;margin:0"><%= desc %> A line containing only <code><%= flds.find((f) => f.endsWith('_link}}')) %></code> becomes a button. Lines starting <code>-</code> become bullet points.</p>
+          <div class="fld"><label>Subject</label><input type="text" name="subject" value="<%= e.subject %>"></div>
+          <div class="fld"><label>Message</label><textarea name="body" rows="16" data-tpl-text><%= e.body %></textarea></div>
+          <div class="fld"><div class="small muted" style="margin-bottom:6px">Insert a field:</div><div class="btn-row"><% flds.forEach((f) => { %><button type="button" class="chip" data-insert="<%= f %>"><%= f %></button><% }) %></div></div>
+          <div class="fld btn-row"><button class="btn btn-primary">Save</button><button class="btn btn-ghost" name="reset" value="yes" style="color:var(--bad)" data-confirm-click="Restore the original wording for this email?">Restore original</button></div>
+        </div>
+      </form>
+    <% }) %>
+
+  <% } else if (tab === 'workflow') { %>
+    <div class="grid grid-2">
+      <form class="card" method="post" action="/admin/settings/workflow">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="card-head"><h3 style="flex:1">Reference requests</h3><span class="small muted"><%= changed('workflow') %></span></div>
+        <div class="card-body">
+          <label class="choice confirm"><input type="checkbox" name="auto_send_requests" value="yes" <%= workflow.auto_send_requests ? 'checked' : '' %>><span>Automatically email reference and employment-verification requests as soon as an officer submits their application</span></label>
+          <p class="small muted mt">When off, send them from the officer's <b>History &amp; references</b> tab with "Send all unsent requests". Contracts are always sent by a member of staff after documents are checked.</p>
+          <button class="btn btn-primary">Save</button>
+        </div>
+      </form>
+      <div class="card">
+        <div class="card-head"><h3 style="flex:1">Email sending</h3><span class="badge <%= smtp.configured ? 'tone-good' : 'tone-warn' %>"><%= smtp.configured ? 'Connected' : 'Not connected' %></span></div>
+        <div class="card-body small">
+          <div class="kv"><div>Sending as</div><div><%= smtp.from %></div><div>Replies go to</div><div><%= company.email %></div></div>
+          <% if (!smtp.configured) { %><p class="mt mb-0">Emails are currently kept in the <a href="/admin/emails">Outbox</a> instead of being sent. The mail server details are set on the hosting platform (not here) for security.</p><% } else { %>
+            <form method="post" action="/admin/settings/test-email" class="mt"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn btn-sm">Send a test email to <%= user.email %></button></form>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  <% } %>
+</div>
+<%- include('../partials/footer') %>

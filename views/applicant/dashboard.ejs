@@ -19,6 +19,12 @@
     <div style="position:relative;z-index:1"><%- include('../partials/status', { s: application.status }) %></div>
   </div>
 
+  <% if (contract && contract.status === 'sent') { %>
+    <div class="alert alert-success mt" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:220px"><strong>Your contract of employment is ready to sign</strong><%= contract.fields.job_title %> · <%= contract.fields.pay_rate %> an hour. Please read it and sign electronically.</div><a class="btn btn-primary" href="/apply/contract">Review &amp; sign contract</a></div>
+  <% } else if (contract && contract.status === 'signed') { %>
+    <div class="alert alert-info mt"><strong>Contract signed</strong>You signed your contract on <%= fmtDateTime(contract.signed_at) %>. <a href="/apply/contract">View or download it</a>.</div>
+  <% } %>
+
   <% if (adminNote && application.status === 'info_requested') { %>
     <div class="alert alert-warn mt"><strong>Message from the screening team (<%= fmtDate(adminNote.at) %>)</strong><%= adminNote.message %></div>
   <% } %>
