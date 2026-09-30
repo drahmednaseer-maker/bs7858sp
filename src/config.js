@@ -49,7 +49,7 @@ module.exports = {
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.SMTP_FROM || 'Security Projects Screening <info@securityprojects.uk>',
+    from: process.env.SMTP_FROM || 'Security Projects Recruitment <recruitment@securityprojects.uk>',
   },
   // BS 7858:2019 screening parameters
   screening: {
@@ -66,7 +66,7 @@ module.exports = {
     northOffice: ['7–8 Delta Bank Road', 'Metro Riverside Park', 'Gateshead', 'NE11 9DJ'],
     phone: process.env.COMPANY_PHONE || '0303 003 2135',
     website: 'www.securityprojects.uk',
-    email: process.env.COMPANY_EMAIL || 'info@securityprojects.uk',
+    email: process.env.COMPANY_EMAIL || 'recruitment@securityprojects.uk',
     regNo: '06808071',
     vatNo: process.env.COMPANY_VAT || '',
     since: 2009,

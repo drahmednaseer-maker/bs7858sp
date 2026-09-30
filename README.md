@@ -38,7 +38,7 @@ Online onboarding and security screening for security officers, built around **B
   - a test email button
 - An email outbox (with "Send now" for anything queued), staff user management, the audit log, and aggregated diversity statistics
 
-**Email (Google Workspace):** set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_SECURE=true`, `SMTP_USER=recruitment@securityprojectsltd.co.uk`, `SMTP_FROM` and `SMTP_PASS`. `SMTP_PASS` is a Google App Password for that mailbox, which requires 2-Step Verification. Until `SMTP_PASS` is set, emails are kept in the Outbox.
+**Email (Google Workspace):** set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_SECURE=true`, `SMTP_USER=recruitment@securityprojects.uk`, `SMTP_FROM` and `SMTP_PASS`. `SMTP_PASS` is a Google App Password for that mailbox, which requires 2-Step Verification. Until `SMTP_PASS` is set, emails are kept in the Outbox.
 
 **Security**
 - All form data and uploaded files are encrypted at rest (AES-256-GCM)
