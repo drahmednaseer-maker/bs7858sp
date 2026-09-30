@@ -53,6 +53,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Once a custom domain is set as APP_URL, send visitors on the old *.up.railway.app address there
+// (keeps links in earlier emails working). Health checks are left alone.
+const canonicalHost = (() => { try { return new URL(config.baseUrl).host; } catch { return null; } })();
+app.use((req, res, next) => {
+  const host = req.get('host') || '';
+  if (config.isProd && canonicalHost && !canonicalHost.endsWith('.up.railway.app') && host.endsWith('.up.railway.app') && req.path !== '/healthz') {
+    return res.redirect(301, `${config.baseUrl}${req.originalUrl}`);
+  }
+  next();
+});
+
 app.use('/', express.static(path.join(__dirname, '..', 'public'), { maxAge: config.isProd ? '7d' : 0 }));
 app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 app.use(express.json({ limit: '8mb' })); // signatures are sent as PNG data URLs
